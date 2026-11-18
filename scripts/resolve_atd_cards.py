@@ -131,7 +131,7 @@ def run(cache_dir=None, out_path=OUT_PATH, now=None, offline=False):
         skipped = "no recorded ATD cards yet"
     else:
         weeks = sorted({int(r["week"]) for r in records})
-        finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline)
+        finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline, cache_dir=cache_dir)
         csv_rows, why = (None, "offline") if offline else fetch_csv(season, cache_dir)
         if csv_rows is None:
             skipped = why

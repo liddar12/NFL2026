@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Freeze the nflverse inputs shared by one grading generation."""
+"""Freeze the ESPN scoreboard and nflverse inputs shared by one grading generation."""
 
 import argparse
 from contextlib import contextmanager
@@ -21,7 +21,16 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from scripts import grading_final_scores as scoreboards  # noqa: E402
+from scripts.scrape.scoreboard_evidence import SCOREBOARD_LIMIT  # noqa: E402
+
 MANIFEST = "manifest.json"
+SCHEDULE = "schedule_full.json"
+PRIOR_REVIEW = "prior_review.json"
 MAX_SOURCE_BYTES = 32 * 1024 * 1024
 MAX_MANIFEST_BYTES = 16 * 1024
 TIMEOUT_SECONDS = 15
@@ -60,10 +69,11 @@ class SourceUnknown(CaptureError):
     """The captured source returned HTTP 404 for this generation."""
 
 
-def _sources(season):
+def _sources(season, weeks=()):
     if type(season) is not int or not 2000 <= season <= 2100:
         raise CaptureError("capture season must be an integer from 2000 to 2100")
-    sources = {}
+    sources = {name: (spec["source_url"], None)
+               for name, spec in scoreboards.scoreboard_sources(season, weeks).items()}
     for release, prefix, columns in _SOURCE_SPECS:
         name = f"{prefix}_{season}.csv"
         sources[name] = (f"{_RELEASE_BASE}/{release}/{name}", columns)
@@ -150,31 +160,47 @@ def _verify(directory):
     raw_manifest = _read_file(directory, MANIFEST, MAX_MANIFEST_BYTES)
     try:
         manifest = json.loads(raw_manifest.decode("utf-8"), object_pairs_hook=_unique_pairs)
-        if (set(manifest) != {"version", "season", "published_utc", "sources"}
-                or type(manifest["version"]) is not int or manifest["version"] != 1
+        fields = {"version", "season", "published_utc", "sources"}
+        version = manifest["version"]
+        if version == 2:
+            fields.update({"started_utc", "scoreboard_weeks", "scoreboard_inputs"})
+        if (set(manifest) != fields or type(version) is not int or version not in (1, 2)
                 or type(manifest["season"]) is not int):
             raise ValueError("invalid manifest version or fields")
         season = manifest["season"]
-        specs = _sources(season)
+        weeks = manifest.get("scoreboard_weeks", [])
+        if (not isinstance(weeks, list) or any(type(week) is not int or not 1 <= week <= 18 for week in weeks)
+                or weeks != sorted(set(weeks))):
+            raise ValueError("invalid scoreboard weeks")
+        specs = _sources(season, weeks)
         entries = manifest["sources"]
         if not isinstance(entries, dict) or set(entries) != set(specs):
             raise ValueError("source membership does not match the captured season")
         published_at = _instant(manifest["published_utc"])
+        input_entries = manifest.get("scoreboard_inputs", {})
+        if version == 2 and (
+                _instant(manifest["started_utc"]) > published_at
+                or not isinstance(input_entries, dict)
+                or set(input_entries) not in ({SCHEDULE}, {SCHEDULE, PRIOR_REVIEW})):
+            raise ValueError("invalid scoreboard input metadata")
         expected = {MANIFEST}
+        for name, source in input_entries.items():
+            if set(source) != {"sha256", "bytes"} or not _valid_digest(source):
+                raise ValueError(f"{name}: invalid local scoreboard input metadata")
+            expected.add(name)
         for name, source in entries.items():
             if (set(source) != {"status", "http_status", "source_url", "source_utc", "sha256", "bytes"}
                     or source["source_url"] != specs[name][0]
                     or _instant(source["source_utc"]) > published_at
+                    or (version == 2 and _instant(source["source_utc"]) < _instant(manifest["started_utc"]))
                     or type(source["http_status"]) is not int):
                 raise ValueError(f"{name}: invalid source metadata")
             if source["status"] == "unknown":
                 if source["http_status"] != 404 or source["sha256"] is not None or source["bytes"] is not None:
                     raise ValueError(f"{name}: invalid unknown-source metadata")
                 continue
-            if (source["status"] != "captured" or source["http_status"] != 200
-                    or type(source["bytes"]) is not int or not 0 < source["bytes"] <= MAX_SOURCE_BYTES
-                    or not isinstance(source["sha256"], str)
-                    or not re.fullmatch(r"[0-9a-f]{64}", source["sha256"])):
+            limit = SCOREBOARD_LIMIT if specs[name][1] is None else MAX_SOURCE_BYTES
+            if source["status"] != "captured" or source["http_status"] != 200 or not _valid_digest(source, limit):
                 raise ValueError(f"{name}: invalid captured-source metadata")
             expected.add(name)
     except (ValueError, KeyError, TypeError, AttributeError, RecursionError, CaptureError) as exc:
@@ -188,12 +214,22 @@ def _verify(directory):
         raise CaptureTampered(f"{', '.join(sorted(extra))}: unexpected grading capture members")
     contents = {}
     for name in sorted(expected - {MANIFEST}):
-        raw = _read_file(directory, name, MAX_SOURCE_BYTES)
-        source = entries[name]
+        limit = SCOREBOARD_LIMIT if name in specs and specs[name][1] is None else MAX_SOURCE_BYTES
+        raw = _read_file(directory, name, limit)
+        source = input_entries[name] if name in input_entries else entries[name]
         if len(raw) != source["bytes"] or hashlib.sha256(raw).hexdigest() != source["sha256"]:
             raise CaptureTampered(f"{name}: grading capture SHA256 or byte count mismatch")
         contents[name] = raw
     return manifest, contents
+
+
+def _valid_digest(source, limit=MAX_SOURCE_BYTES):
+    return (type(source["bytes"]) is int and 0 < source["bytes"] <= limit
+            and isinstance(source["sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", source["sha256"]))
+
+
+def _digest(raw):
+    return {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
 
 
 def _csv_rows(raw, name, season, columns):
@@ -223,32 +259,85 @@ def _csv_rows(raw, name, season, columns):
         raise CaptureError(f"{name}: invalid grading source CSV ({exc})") from exc
 
 
-def read_rows(cache_dir, name):
-    """Return verified rows for one member without consulting the network."""
-    if not isinstance(name, str) or "/" in name or "\\" in name or name in ("", ".", ".."):
-        raise CaptureTampered(f"{name!r}: unsafe grading capture member name")
+def _verified_capture(cache_dir):
     with _open_directory(cache_dir) as directory:
         try:
             fcntl.flock(directory, fcntl.LOCK_SH | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise CaptureUnpublished("grading capture is still being published") from exc
-        manifest, contents = _verify(directory)
-    if name not in manifest["sources"]:
+        return _verify(directory)
+
+
+def read_rows(cache_dir, name):
+    """Return verified rows for one member without consulting the network."""
+    if not isinstance(name, str) or "/" in name or "\\" in name or name in ("", ".", ".."):
+        raise CaptureTampered(f"{name!r}: unsafe grading capture member name")
+    manifest, contents = _verified_capture(cache_dir)
+    season = manifest["season"]
+    specs = _sources(season)
+    if name not in specs:
         raise CaptureMissing(f"{name}: not a member of this grading capture")
     source = manifest["sources"][name]
     if source["status"] == "unknown":
         raise SourceUnknown(f"{name}: captured HTTP 404 at {source['source_utc']}")
-    season = manifest["season"]
     try:
-        return list(_csv_rows(contents[name], name, season, _sources(season)[name][1]))
+        return list(_csv_rows(contents[name], name, season, specs[name][1]))
     except CaptureError as exc:
         raise CaptureTampered(str(exc)) from exc
+
+
+def _scoreboard_snapshot(contents, season, started_utc):
+    schedule = json.loads(contents[SCHEDULE], object_pairs_hook=_unique_pairs)
+    previous = json.loads(contents[PRIOR_REVIEW], object_pairs_hook=_unique_pairs) if PRIOR_REVIEW in contents else None
+    return schedule, scoreboards.fixture_snapshot(schedule, previous, season, started_utc)
+
+
+def read_final_scores(cache_dir, season=None, *, allow_legacy=False):
+    """Return the frozen schedule, verified FINAL rows, and source coverage."""
+    manifest, contents = _verified_capture(cache_dir)
+    if season is not None and manifest["season"] != season:
+        raise CaptureTampered(f"capture belongs to season {manifest['season']}, expected {season}")
+    if manifest["version"] != 2:
+        if allow_legacy:
+            return None
+        raise CaptureMissing("grading capture has no ESPN scoreboard (version 2 required)")
+    try:
+        return _final_scores(manifest, contents)
+    except (ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
+        raise CaptureTampered(f"invalid captured scoreboard: {exc}") from exc
+
+
+def _final_scores(manifest, contents):
+    season = manifest["season"]
+    schedule, snapshot = _scoreboard_snapshot(contents, season, manifest["started_utc"])
+    weeks = manifest["scoreboard_weeks"]
+    if snapshot["weeks"] != weeks:
+        raise ValueError("scoreboard weeks differ from captured schedule")
+    scores, statuses, coverage, retained = scoreboards.derive_finals(
+        snapshot, scoreboards.scoreboard_sources(season, weeks), manifest["sources"], contents)
+    capture_id = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    label = "ESPN grading capture %s (manifest identity %s, %d observed FINAL, %d verified prior review FINAL retained)" % (
+        manifest["published_utc"], capture_id, len(scores) - retained, retained)
+    label += "; captured schedule updated %s" % (schedule.get("updated_utc") or "unknown")
+    unknown = [f"wk {r['week']}: HTTP {r['http_status']}, {r['unknown_games']} unknown"
+               for r in coverage if r["unknown_games"] or r["http_status"] != 200]
+    if unknown:
+        label += "; coverage " + ", ".join(unknown)
+    ids = {g["game_id"] for g in scores}
+    incomplete = {r["week"] for gid, r in snapshot["fixtures"].items() if gid not in ids}
+    complete_weeks = [week for week in weeks if week not in incomplete]
+    return {"season": season, "schedule": schedule, "games": scores, "statuses": statuses,
+            "coverage": coverage, "source": label, "retained": retained,
+            "schedule_sha256": manifest["scoreboard_inputs"][SCHEDULE]["sha256"],
+            "capture_id": capture_id,
+            "complete_weeks": complete_weeks}
 
 
 def http_fetch(url, *, timeout, max_bytes):
     """Fetch a fixed release URL with an inactivity timeout and a body limit."""
     request = Request(url, headers={
-        "Accept": "text/csv", "Accept-Encoding": "identity",
+        "Accept": "application/json" if scoreboards.is_scoreboard_url(url) else "text/csv",
+        "Accept-Encoding": "identity",
         "User-Agent": "NFL2026-grading-capture/1",
     })
     deadline = time.monotonic() + timeout
@@ -281,17 +370,17 @@ def http_fetch(url, *, timeout, max_bytes):
         return exc.code, b""
 
 
-def _fetch(name, url, transport, sleep):
+def _fetch(name, url, transport, sleep, max_bytes=MAX_SOURCE_BYTES):
     for delay in (0, *RETRY_DELAYS):
         if delay:
             sleep(delay)
         try:
-            status, raw = transport(url, timeout=TIMEOUT_SECONDS, max_bytes=MAX_SOURCE_BYTES)
+            status, raw = transport(url, timeout=TIMEOUT_SECONDS, max_bytes=max_bytes)
         except (OSError, HTTPException) as exc:
             failure = str(exc)
             continue
         if status in (200, 404):
-            if status == 200 and (not isinstance(raw, bytes) or len(raw) > MAX_SOURCE_BYTES):
+            if status == 200 and (not isinstance(raw, bytes) or not 0 < len(raw) <= max_bytes):
                 raise CaptureError(f"{name}: invalid grading source body or size")
             return status, raw
         failure = f"HTTP {status}"
@@ -309,39 +398,85 @@ def _write_new(directory, name, raw):
         os.fsync(stream.fileno())
 
 
-def capture(season, output, *, transport=http_fetch, sleep=time.sleep):
+def _read_input(path, *, optional=False):
+    try:
+        with open(path, "rb") as stream:
+            raw = stream.read(MAX_SOURCE_BYTES + 1)
+        if not 0 < len(raw) <= MAX_SOURCE_BYTES:
+            raise CaptureError(f"{path}: local scoreboard input has an invalid size")
+        return raw
+    except FileNotFoundError as exc:
+        if optional:
+            return None
+        raise CaptureMissing(f"{path}: required scoreboard input is missing") from exc
+
+
+def capture(season, output, *, schedule_path=None, prior_review_path=None, transport=http_fetch, sleep=time.sleep):
     """Publish a new snapshot or verify and reuse the existing generation."""
     specs = _sources(season)
     with _open_directory(output, create=True) as directory:
         fcntl.flock(directory, fcntl.LOCK_EX)
         members = set(os.listdir(directory))
         if MANIFEST in members:
-            manifest, _ = _verify(directory)
+            manifest, contents = _verify(directory)
             if manifest["season"] != season:
                 raise CaptureTampered(f"{output}: grading capture belongs to season {manifest['season']}")
+            if schedule_path is not None and manifest["version"] != 2:
+                raise CaptureMissing("grading capture has no ESPN scoreboard (version 2 required)")
+            if manifest["version"] == 2:
+                try:
+                    _final_scores(manifest, contents)
+                except (ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
+                    raise CaptureTampered(f"invalid captured scoreboard: {exc}") from exc
             return manifest
         if members:
             raise CaptureUnpublished(f"{output}: refusing to resume a partial grading capture")
 
         contents = {}
+        version = 2 if schedule_path is not None else 1
+        started_utc = _utc_now()
+        weeks, inputs = [], {}
+        if version == 2:
+            contents[SCHEDULE] = _read_input(schedule_path)
+            if prior_review_path is not None:
+                prior_raw = _read_input(prior_review_path, optional=True)
+                if prior_raw is not None:
+                    contents[PRIOR_REVIEW] = prior_raw
+            try:
+                _, snapshot = _scoreboard_snapshot(contents, season, started_utc)
+            except (ValueError, TypeError, AttributeError, RecursionError) as exc:
+                raise CaptureError(f"invalid scoreboard fixture input: {exc}") from exc
+            weeks = snapshot["weeks"]
+            specs = _sources(season, weeks)
+            inputs = {name: _digest(raw) for name, raw in contents.items()}
+
         sources = {}
         for name, (url, columns) in specs.items():
-            status, raw = _fetch(name, url, transport, sleep)
+            limit = MAX_SOURCE_BYTES if columns is not None else SCOREBOARD_LIMIT
+            status, raw = _fetch(name, url, transport, sleep, limit)
             observed_at = _utc_now()
             record = {"source_url": url, "source_utc": observed_at, "http_status": status}
             if status == 200:
-                for _ in _csv_rows(raw, name, season, columns):
-                    pass
+                if columns is not None:
+                    for _ in _csv_rows(raw, name, season, columns):
+                        pass
                 contents[name] = raw
-                record.update(status="captured", sha256=hashlib.sha256(raw).hexdigest(), bytes=len(raw))
+                record.update(status="captured", **_digest(raw))
             else:
                 record.update(status="unknown", sha256=None, bytes=None)
             sources[name] = record
 
+        manifest = {"version": version, "season": season, "published_utc": _utc_now(), "sources": sources}
+        if version == 2:
+            manifest.update(started_utc=started_utc, scoreboard_weeks=weeks, scoreboard_inputs=inputs)
+            try:
+                _final_scores(manifest, contents)
+            except (ValueError, TypeError, AttributeError, RecursionError) as exc:
+                raise CaptureError(f"invalid captured scoreboard: {exc}") from exc
         for name, raw in contents.items():
             _write_new(directory, name, raw)
         os.fsync(directory)
-        manifest = {"version": 1, "season": season, "published_utc": _utc_now(), "sources": sources}
+        manifest["published_utc"] = _utc_now()
         marker = f".manifest-{uuid4().hex}.tmp"
         published = False
         try:
@@ -367,9 +502,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--season", type=int, required=True)
     parser.add_argument("--output", required=True, help="directory for this immutable grading generation")
+    parser.add_argument("--schedule", help="freeze this schedule and capture its ESPN regular-season scoreboards")
+    parser.add_argument("--prior-review", help="freeze verified same-fixture FINAL history from this review")
     args = parser.parse_args(argv)
+    if args.prior_review and not args.schedule:
+        parser.error("--prior-review requires --schedule")
     try:
-        manifest = capture(args.season, args.output)
+        manifest = capture(args.season, args.output, schedule_path=args.schedule, prior_review_path=args.prior_review)
     except CaptureError as exc:
         print(f"grading input capture failed: {exc}", file=sys.stderr)
         return 1

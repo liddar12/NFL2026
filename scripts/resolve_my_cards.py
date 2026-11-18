@@ -568,7 +568,7 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
     # The weeks whose finals matter: every week holding a locked game leg.
     game_weeks = sorted({w for w, c in rows if c.get("locked")})
     finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
-                                        offline=offline)
+                                        offline=offline, cache_dir=cache_dir, stats_path=dry_run_csv)
 
     if not rows:
         skipped = ("no recorded cards at %s yet -- scripts/build_my_cards.py writes them "

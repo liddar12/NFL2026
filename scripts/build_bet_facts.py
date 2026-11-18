@@ -304,13 +304,19 @@ def write(doc, path=OUT_PATH):
 
 
 def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
-    sched = _load(SCHEDULE_PATH, {}) or {}
+    from scripts.resolve_estimates import captured_final_scores
+    captured = captured_final_scores(cache_dir=cache_dir)
+    sched = captured["schedule"] if captured is not None else (_load(SCHEDULE_PATH, {}) or {})
     games = sched.get("games") or []
     season = int(sched.get("season") or (games[0].get("season") if games else 0)
                  or dt.datetime.now(dt.timezone.utc).year)
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     weeks = sorted({int(g["week"]) for g in games if g.get("week") is not None})
-    finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline)
+    if captured is not None:
+        finals = {row["game_id"]: row for row in captured["games"]}
+        finals_source = captured["source"]
+    else:
+        finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline)
     recorded = recorded_legs()
     idents = identities(_load(PROJ_PATH), _load(POOL_PATH), recorded)
     stats_by_week = td_by_week = snaps_by_week = None
@@ -325,7 +331,7 @@ def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
             stats_note = "nflverse stats_player_week (%d weeks)%s" % (
                 len(stats_by_week), "" if snaps_by_week else "; snap counts unavailable")
     from scripts.player_outcomes import load_context
-    event_context = load_context(DATA, season, finals, cache_dir)
+    event_context = load_context(DATA, season, finals, cache_dir, captured=captured)
     doc = build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week,
                 excluded_ids(), season, now, "finals: %s; stats: %s" % (finals_source, stats_note),
                 teams_by_week=week_teams(recorded), event_context=event_context, recorded=recorded)

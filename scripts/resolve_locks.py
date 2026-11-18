@@ -53,7 +53,13 @@ def outcome_index(final_game):
     return None  # tie
 
 
-def resolve_rows(rows, finals_by_id):
+def compatible_resolved_game_lock(row, final):
+    """Admit a stored grade only when the captured fixture supports that outcome."""
+    return bool(final and type(row.get("actual")) is int and row["actual"] == outcome_index(final)
+                and snap.pregame_lock(row, final.get("kickoff_utc")))
+
+
+def resolve_rows(rows, finals_by_id, *, require_capture=False):
     """Resolve every resolvable game row in `rows` against `finals_by_id`. Pure.
 
     Mutates rows in place (the harness's designed resolve flow — snapshot.resolve
@@ -93,6 +99,7 @@ def resolve_rows(rows, finals_by_id):
 
     scored = [r for r in rows
               if r.get("resolved") and not r.get("estimate", True)
+              and (not require_capture or compatible_resolved_game_lock(r, finals_by_id.get(str(r.get("event_id")))))
               and snap.pregame_lock(r, (finals_by_id.get(str(r.get("event_id"))) or {}).get("kickoff_utc"))
               and isinstance(r.get("brier"), (int, float))]
     n = len(scored)
@@ -119,8 +126,14 @@ def resolve_all_locks(schedule_finals):
     Prints a grading summary (or the clear no-op line) and returns the aggregate
     summary dict.
     """
+    return _resolve_locks(schedule_finals)
+
+
+def _resolve_locks(schedule_finals, *, season=None):
     finals_by_id = {str(g["game_id"]): g for g in schedule_finals}
     paths = sorted(glob.glob(os.path.join(snap.SNAPSHOT_DIR, LOCK_GLOB)))
+    if season is not None:
+        paths = [path for path in paths if os.path.basename(path).startswith(f"{season}_")]
 
     total = {"files": len(paths), "rows": 0, "resolved_now": 0,
              "already_resolved": 0, "pending": 0, "ties_skipped": 0,
@@ -129,8 +142,14 @@ def resolve_all_locks(schedule_finals):
 
     for path in paths:
         name = os.path.basename(path)
+        week_finals = finals_by_id
+        if season is not None:
+            week_token = name.split("_")[1].removeprefix("wk")
+            if not week_token.isdigit():
+                continue
+            week_finals = {gid: row for gid, row in finals_by_id.items() if row["week"] == int(week_token)}
         rows = snap.load_snapshot(name)
-        s = resolve_rows(rows, finals_by_id)
+        s = resolve_rows(rows, week_finals, require_capture=season is not None)
         if s["resolved_now"]:
             snap.write_snapshot(name, rows)
         print(f"  {name}: rows={s['rows']} resolved_now={s['resolved_now']} "
@@ -141,7 +160,8 @@ def resolve_all_locks(schedule_finals):
             total[key] += s[key]
         for r in rows:
             if (r.get("resolved") and not r.get("estimate", True)
-                    and snap.pregame_lock(r, (finals_by_id.get(str(r.get("event_id"))) or {}).get("kickoff_utc"))
+                    and (season is None or compatible_resolved_game_lock(r, week_finals.get(str(r.get("event_id")))))
+                    and snap.pregame_lock(r, (week_finals.get(str(r.get("event_id"))) or {}).get("kickoff_utc"))
                     and isinstance(r.get("brier"), (int, float))):
                 briers.append(r["brier"])
                 losses.append(r["log_loss"])
@@ -177,6 +197,13 @@ def _seasons_in_locks():
 
 
 def main():
+    from scripts.resolve_estimates import captured_final_scores
+    captured = captured_final_scores()
+    if captured is not None:
+        print(captured["source"])
+        _resolve_locks(captured["games"], season=captured["season"])
+        return 0
+
     seasons = _seasons_in_locks()
     if not seasons:
         print("resolve_locks: no *_games_open.json lock files under data/snapshots/ "

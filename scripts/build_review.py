@@ -132,7 +132,7 @@ if _ROOT not in sys.path:
 
 from scripts.build_parlay_archive import card_id as parlay_card_id  # noqa: E402
 from scripts.harness import metrics  # noqa: E402
-from scripts.resolve_estimates import norm_name  # noqa: E402
+from scripts.resolve_estimates import captured_final_scores, norm_name  # noqa: E402
 from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
 from scripts.scrape.renames import normalize_team  # noqa: E402
 
@@ -318,7 +318,7 @@ def _qb1_status(team, qb1_by_team, injury_by_key):
 
 
 def review_game(game, lock, final, qb1_by_team=None, injury_by_key=None,
-                forecast=None, injuries_as_of=None):
+                forecast=None, injuries_as_of=None, *, allow_lock_actual=True):
     """One review row for a scheduled game. Pure.
 
     `lock` is the as-made lock row (probs [home, away]); `final` is the gated
@@ -339,7 +339,7 @@ def review_game(game, lock, final, qb1_by_team=None, injury_by_key=None,
         row["status"] = final.get("status") or "STATUS_FINAL"
         row["final_source"] = "espn_final"
         winner = row["final"]["winner"]
-    elif lock and lock.get("resolved") and lock.get("actual") in (0, 1):
+    elif allow_lock_actual and lock and lock.get("resolved") and lock.get("actual") in (0, 1):
         winner = home if lock["actual"] == 0 else away
         row["final"] = {"home_score": None, "away_score": None, "winner": winner}
         row["status"] = "STATUS_FINAL"
@@ -1186,7 +1186,7 @@ def newest_refit(tuning):
             "adopted": adopted, "verdict": "adopted" if adopted else "held"}
 
 
-def learning_for_week(lock_rows, refit):
+def learning_for_week(lock_rows, refit, *, capture_bound=False):
     """One week's learning block: how many of this week's lock receipts are graded
     (refit's rule) and the refit pass they fed. The archive records n_resolved
     across ALL lock files, never per week, so `refit` is the newest pass (the
@@ -1203,13 +1203,17 @@ def learning_for_week(lock_rows, refit):
         return {"graded_locks": graded, "refit": None,
                 "note": "%d graded receipts, but model_tuning.json history holds no in-season "
                         "refit pass yet — not consumed" % graded}
+    if capture_bound:
+        return {"graded_locks": graded, "refit": dict(refit),
+                "note": "%d receipts agree with the captured FINAL scores. The newest refit "
+                        "archive records its count without identifying its receipt set." % graded}
     return {"graded_locks": graded, "refit": dict(refit),
             "note": "%d graded receipts feed scripts/refit.py; newest pass %s consumed "
                     "n_resolved=%d across all lock files and was %s" % (
                         graded, refit["archived_utc"], refit["n_resolved"], refit["verdict"])}
 
 
-def learning_block(locks, tuning):
+def learning_block(locks, tuning, *, capture_bound=False):
     """Top-level proof of the loop from committed data ONLY. graded_locks_total =
     the receipts under data/snapshots/*_games_open.json that refit consumes;
     refit = the newest in-season pass in model_tuning.json; consumed_all =
@@ -1225,6 +1229,10 @@ def learning_block(locks, tuning):
                     "no in-season refit pass yet (receipts graded after the last refit "
                     "pass, or refit has not run)" % total)
         return {"graded_locks_total": total, "refit": None, "consumed_all": None, "note": note}
+    if capture_bound:
+        return {"graded_locks_total": total, "refit": refit, "consumed_all": None,
+                "note": "%d receipts agree with the captured FINAL scores. The newest refit recorded "
+                        "%d receipts without identifying their membership." % (total, refit["n_resolved"])}
     consumed = refit["n_resolved"] == total
     if consumed:
         note = ("all %d graded lock receipts were consumed by the refit pass archived %s "
@@ -1343,6 +1351,16 @@ def build(inputs, now):
         if ledger_legs.setdefault(key, gid) != gid:
             ledger_legs[key] = None
     locks = inputs.get("locks") or {}          # {week: [rows]}
+    capture_bound = inputs.get("captured_finals", False)
+    learning_locks = locks
+    if capture_bound:
+        from scripts.resolve_locks import compatible_resolved_game_lock
+        finals_by_week = {(int(row["week"]), row["game_id"]): row for row in inputs["finals"]}
+        learning_locks = {
+            week: [row for row in rows if compatible_resolved_game_lock(
+                row, finals_by_week.get((int(week), str(row.get("event_id")))))]
+            for week, rows in locks.items()
+        }
     scores = (inputs.get("estimate_scores") or {}).get("resolved") or []
     parlays_doc = inputs.get("parlays") or {}
     previous = inputs.get("previous") or {}
@@ -1373,7 +1391,7 @@ def build(inputs, now):
             gid = str(g["game_id"])
             fc = _forecast_for(inputs.get("forecast"), season, wk, g.get("home"), g.get("away"))
             games.append(review_game(g, lidx.get(gid), finals.get(gid), qb1, injury_by_key,
-                                     fc, injuries_as_of))
+                                     fc, injuries_as_of, allow_lock_actual=not capture_bound))
         game_by_id = {g["game_id"]: g for g in games}
         games_by_team = {}
         for g in wk_games:
@@ -1456,9 +1474,10 @@ def build(inputs, now):
                          "excluded legs dropped from the parlays, summary and $100 P&L"
                          % (wk, ", ".join(sorted(excluded)) or "none listed now", sum(voided),
                             sum(1 for n in voided if n), len(dropped)))
+        learning_rows = learning_locks.get(wk, learning_locks.get(str(wk)))
         blk.update({"players": players,
                     "summary": summarize(games, parlays, players,
-                                         learning_for_week(lock_rows, refit),
+                                         learning_for_week(learning_rows, refit, capture_bound=capture_bound),
                                          wk, price_index)})
         out_weeks[str(wk)] = blk
     if not stats_available:
@@ -1466,17 +1485,24 @@ def build(inputs, now):
                      "efficiency/turnovers factors omitted on every row (%s)"
                      % (inputs.get("stats_reason") or "offline"))
     if not finals:
-        notes.append("finals: no FINAL scores on file — game results come from lock "
-                     "receipts only (winner known, score null) (%s)"
-                     % (inputs.get("finals_reason") or "offline"))
+        if capture_bound:
+            notes.append("finals: no verified FINAL scores in the grading capture")
+        else:
+            notes.append("finals: no FINAL scores on file — game results come from lock "
+                         "receipts only (winner known, score null) (%s)"
+                         % (inputs.get("finals_reason") or "offline"))
     if not inputs.get("leg_scores"):
-        notes.append("parlays: data/parlay_leg_scores.json absent — spread/prop legs "
-                     "pending; moneyline legs graded from the lock receipts")
+        if capture_bound:
+            notes.append("parlays: data/parlay_leg_scores.json absent. Legs without captured "
+                         "game and player evidence remain pending.")
+        else:
+            notes.append("parlays: data/parlay_leg_scores.json absent — spread/prop legs "
+                         "pending; moneyline legs graded from the lock receipts")
     if not tuning:
         notes.append("learning: data/model_tuning.json not loaded — refit archive unknown, "
                      "consumed_all null")
     doc = {"season": season, "generated_utc": now, "review_through_week": through,
-           "weeks": out_weeks, "learning": learning_block(locks, tuning),
+           "weeks": out_weeks, "learning": learning_block(learning_locks, tuning, capture_bound=capture_bound),
            "players_season": players_season(out_weeks),
            "sources": inputs.get("sources") or {}, "notes": notes}
     kept = carry_narratives(doc, previous)
@@ -1510,7 +1536,14 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     """Committed inputs (+ optional finals file / stats CSV; + ESPN / nflverse on the
     runner when not offline). Every skip is recorded in notes and sources."""
     data = os.path.join(root, "data")
-    sched = _load(os.path.join(data, "schedule_full.json"))
+    captured = captured_final_scores(int(season) if season else None, cache_dir, finals_path, stats_csv)
+    if captured is not None:
+        schedule = captured["schedule"]
+        statuses = captured["statuses"]
+        sched = {**schedule, "games": [{**game, "status": statuses.get(str(game["game_id"]))}
+                                       for game in schedule["games"]]}
+    else:
+        sched = _load(os.path.join(data, "schedule_full.json"))
     gp = _load_opt(os.path.join(data, "game_predictions.json"))
     season = int(season or sched.get("season") or (gp or {}).get("season"))
     locks, lock_paths = load_locks(os.path.join(data, "snapshots"), season)
@@ -1522,6 +1555,9 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     tuning = _load_opt(os.path.join(data, "model_tuning.json"))
     sources["model_tuning"] = _stamp(tuning, "generated_utc")
     es = _load_opt(os.path.join(data, "estimate_scores.json"))
+    if captured is not None and es and not (es.get("source") or "").endswith("; " + captured["source"]):
+        es = None
+        notes.append("estimate scores omitted because their grading capture differs from this review")
     sources["estimate_scores"] = _stamp(es, "generated_utc")
     weekly = _load_opt(os.path.join(data, "player_weekly.json"))
     sources["player_weekly"] = _stamp(weekly, "updated_utc")
@@ -1538,6 +1574,9 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     pledger = _load_opt(os.path.join(data, "estimates", "parlays_%d.json" % season))
     sources["parlay_ledger"] = _stamp(pledger, "generated_utc")
     legs = _load_opt(os.path.join(data, "parlay_leg_scores.json"))
+    if captured is not None and legs and legs.get("finals_source") != captured["source"]:
+        legs = None
+        notes.append("parlay leg scores omitted because their grading capture differs from this review")
     sources["parlay_leg_scores"] = _stamp(legs, "generated_utc")
     previous = _load_opt(OUT_PATH if root == _ROOT else os.path.join(data, "review.json"))
     archives = {}
@@ -1550,8 +1589,11 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     excluded = sorted(excluded_games.excluded_ids())
 
     fresh_finals, finals_reason = [], None
-    fetched = 0
-    if finals_path:
+    if captured is not None:
+        finals, finals_source = captured["games"], captured["source"]
+        if not finals:
+            finals_reason = "no verified FINAL scores from %s" % finals_source
+    elif finals_path:
         fresh_finals = _load(finals_path)
         finals_source = "file:%s" % os.path.relpath(finals_path, root)
     elif offline:
@@ -1559,6 +1601,7 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
         finals_source = "lock receipts only (offline)"
     else:
         from scripts.scrape import espn  # noqa: PLC0415 — runner only
+        fetched = 0
         for wk in sorted(locks):
             try:
                 rows = espn.fetch_scores(season, week=wk, final_only=True)
@@ -1569,16 +1612,17 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
             fresh_finals.extend({"week": wk, **r} for r in rows)
             fetched += 1
         finals_source = "espn (%d week(s) fetched)" % fetched
-    finals, retained, fresh = merge_review_finals(
-        sched, season, previous, fresh_finals, require_fresh_teams=not finals_path)
-    if not offline or finals_path:
-        finals_source += " (%d verified FINAL scores)" % fresh
-        if not fresh:
-            finals_reason = "no verified FINAL scores from %s" % finals_source
-    if retained:
-        retained_source = "prior review (%d verified FINAL scores retained)" % retained
-        finals_source = retained_source if offline and not finals_path else finals_source + "; " + retained_source
-        notes.append("finals: " + retained_source + ("; " + finals_reason if finals_reason else ""))
+    if captured is None:
+        finals, retained, fresh = merge_review_finals(
+            sched, season, previous, fresh_finals, require_fresh_teams=not finals_path)
+        if not offline or finals_path:
+            finals_source += " (%d verified FINAL scores)" % fresh
+            if not fresh:
+                finals_reason = "no verified FINAL scores from %s" % finals_source
+        if retained:
+            retained_source = "prior review (%d verified FINAL scores retained)" % retained
+            finals_source = retained_source if offline and not finals_path else finals_source + "; " + retained_source
+            notes.append("finals: " + retained_source + ("; " + finals_reason if finals_reason else ""))
     sources["finals"] = finals_source
 
     stats_rows, stats_reason = [], None
@@ -1614,13 +1658,13 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     sources["snaps"] = "nflverse snap_counts" if snaps else None
     from scripts.player_outcomes import load_context
     from scripts.resolve_parlay_legs import winners_from_locks
-    event_finals = winners_from_locks(locks.values())
+    event_finals = winners_from_locks(locks.values()) if captured is None else {}
     event_finals.update(finals_index(finals))
-    grading_context = load_context(data, season, event_finals, cache_dir)
+    grading_context = load_context(data, season, event_finals, cache_dir, captured=captured)
 
     return {"season": season, "schedule": sched, "predictions": gp, "tuning": tuning,
             "archives": archives, "snaps": snaps,
-            "locks": locks, "finals": finals,
+            "locks": locks, "finals": finals, "captured_finals": captured is not None,
             "finals_reason": finals_reason, "estimate_scores": es, "weekly": weekly,
             "projections": proj, "injuries": inj, "forecast": fc, "parlays": parlays,
             "ledger": ledger, "parlay_ledger": pledger, "leg_scores": legs,

@@ -57,7 +57,7 @@ if _ROOT not in sys.path:
 from scripts.build_parlay_ledger import (PROP_POSITION, GAME_MARKETS,  # noqa: E402
                                          ledger_path)
 from scripts.models.parlay_builder import seed_prop_prob  # noqa: E402
-from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
+from scripts.resolve_estimates import RELEASE_URL, captured_final_scores, fetch_csv, norm_name  # noqa: E402
 from scripts.scrape.renames import normalize_team  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
@@ -583,13 +583,16 @@ def fetch_finals_espn(season, weeks, fetch=None):
 
 
 def load_finals(finals_path=None, snapshot_glob=SNAPSHOT_GLOB, season=None, weeks=(),
-                offline=False, review_path=REVIEW_PATH, espn_fetch=None):
+                offline=False, review_path=REVIEW_PATH, espn_fetch=None, cache_dir=None, stats_path=None):
     """(finals index, source label). A --finals file wins outright. Otherwise the
     layers merge, later ones overriding earlier ones per game: lock receipts
     (winner only) < data/review.json (scores, offline) < ESPN live (scores, on
     the runner when `weeks` are given and not `offline`). The label names every
     layer that contributed a game, so the document never claims a source it
     did not use."""
+    captured = captured_final_scores(season, cache_dir, finals_path, stats_path)
+    if captured is not None:
+        return finals_index(captured["games"]), captured["source"]
     if finals_path:
         doc = _load(finals_path)
         rows = doc.get("games") if isinstance(doc, dict) else doc
@@ -646,7 +649,7 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
         except (OSError, ValueError, KeyError, TypeError):
             game_weeks = ()
     finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
-                                        offline=offline)
+                                        offline=offline, cache_dir=cache_dir, stats_path=dry_run_csv)
     event_bound = not dry_run_csv
     if not os.path.exists(lpath):
         skipped = ("no ledger at %s yet — scripts/build_parlay_ledger.py appends the first "

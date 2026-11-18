@@ -34,6 +34,9 @@ SOURCES = {
 def transport(url, **options):
     return 200, SOURCES[url.rsplit("/", 1)[-1]]
 
+def capture_with_schedule(cache, fetch=transport):
+    return capture(2026, cache, schedule_path=data / "schedule_full.json", transport=fetch)
+
 def no_network(*args, **kwargs):
     raise AssertionError("grading capture consumers must not use the network")
 
@@ -59,7 +62,7 @@ def expect_all(error, fragment, path=None):
 function run(body) {
   const code = `${setup}\nwith tempfile.TemporaryDirectory() as tmp:\n    root = Path(tmp)\n`
     + '    data = root / "data"\n    data.mkdir()\n'
-    + '    (data / "schedule_full.json").write_text(json.dumps({"games": []}))\n'
+    + '    (data / "schedule_full.json").write_text(json.dumps({"season": 2026, "games": []}))\n'
     + body.trim().split('\n').map((line) => `    ${line}`).join('\n');
   execFileSync('python3', ['-'], { cwd: repo, input: code, encoding: 'utf8' });
 }
@@ -67,7 +70,7 @@ function run(body) {
 test('stats, snap and roster loaders share a verified capture via cache path or environment', () => {
   run(String.raw`
 cache = root / "capture"
-capture(2026, cache, transport=transport)
+capture_with_schedule(cache)
 stats, snaps, context = run_loaders(cache)
 assert stats[0][0]["passing_yards"] == "200" and stats[1] is None
 assert snaps[11]["rows"][0]["snaps"] == 12
@@ -84,7 +87,7 @@ expect_all(CaptureError, "is empty")
 test('frozen HTTP 404 leaves stats, participation and the roster crosswalk unknown', () => {
   run(String.raw`
 cache = root / "capture"
-capture(2026, cache, transport=lambda *args, **kwargs: (404, b""))
+capture_with_schedule(cache, lambda *args, **kwargs: (404, b""))
 os.environ[ENV] = str(cache)
 stats, snaps, context = run_loaders()
 assert stats[0] is None and f"{STATS}: captured HTTP 404" in stats[1]
@@ -103,7 +106,7 @@ cache.mkdir()
 (cache / STATS).write_bytes(SOURCES[STATS])
 expect_all(CaptureUnpublished, MANIFEST)
 (cache / STATS).unlink()
-capture(2026, cache, transport=transport)
+capture_with_schedule(cache)
 original = (cache / MANIFEST).read_bytes()
 (cache / SNAPS).write_bytes(b"changed after capture")
 expect_all(CaptureTampered, SNAPS)
@@ -151,7 +154,7 @@ runner.mkdir()
 env_file = runner / "actions environment"
 env_file.write_text("EXISTING=value\n")
 cache = runner / "grading-inputs-123456-2"
-capture(2026, cache, transport=transport)
+capture_with_schedule(cache)
 marker = cache / MANIFEST
 manifest_before = marker.read_bytes()
 
@@ -165,7 +168,8 @@ network_attempt = root / "network_called"
     "urllib.request.urlopen = reject_network\n"
 )
 env = dict(os.environ, RUNNER_TEMP=str(runner), GITHUB_ENV=str(env_file),
-           GITHUB_RUN_ID="123456", GITHUB_RUN_ATTEMPT="2", PYTHONPATH=str(root))
+           GITHUB_RUN_ID="123456", GITHUB_RUN_ATTEMPT="2",
+           PYTHONPATH=os.pathsep.join((str(root), str(Path.cwd()))))
 command = ["bash", "scripts/capture_grading_inputs.sh"]
 
 done = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True)
@@ -186,5 +190,13 @@ assert env_file.read_text() == "EXISTING=value\n" + assignment * 2
 assert marker.read_bytes() == manifest_before
 assert (cache / SNAPS).read_bytes() == tampered
 assert not network_attempt.exists()
+
+historical = runner / "historical-csv-only"
+legacy = capture(2025, historical, transport=lambda *args, **kwargs: (404, b""))
+replayed = subprocess.run([sys.executable, "scripts/capture_grading_inputs.py", "--season", "2025",
+                           "--output", str(historical)], cwd=root, env=env, capture_output=True, text=True)
+assert replayed.returncode == 0, replayed.stderr
+assert json.loads((historical / MANIFEST).read_bytes()) == legacy
+assert legacy["version"] == 1 and not network_attempt.exists()
 `);
 });

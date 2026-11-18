@@ -11,7 +11,7 @@ import os
 import re
 
 from scripts.capture_grading_inputs import SourceUnknown, read_rows
-from scripts.resolve_estimates import grading_capture_dir, norm_name
+from scripts.resolve_estimates import captured_final_scores, grading_capture_dir, norm_name
 from scripts.scrape.renames import normalize_team
 
 _GAME = re.compile(r"^(\d{4})_(\d{2})_([A-Z0-9]+)_([A-Z0-9]+)$")
@@ -60,9 +60,15 @@ def context(games, finals, season, ids=None):
     return {"games": out, "ids": ids or identity_maps()}
 
 
-def load_context(data_dir, season, finals, cache_dir=None):
-    with open(os.path.join(data_dir, "schedule_full.json"), encoding="utf-8") as f:
-        schedule = json.load(f)
+def load_context(data_dir, season, finals, cache_dir=None, *, captured=None):
+    if captured is None:
+        captured = captured_final_scores(season, cache_dir)
+    if captured is not None:
+        schedule = captured["schedule"]
+        finals = {row["game_id"]: row for row in captured["games"]}
+    else:
+        with open(os.path.join(data_dir, "schedule_full.json"), encoding="utf-8") as f:
+            schedule = json.load(f)
     roster = []
     name = "roster_%d.csv" % int(season)
     capture_dir = grading_capture_dir(cache_dir)

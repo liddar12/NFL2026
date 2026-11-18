@@ -8,4 +8,5 @@ set -euo pipefail
 export NFL_GRADING_CAPTURE_DIR="$RUNNER_TEMP/grading-inputs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 printf 'NFL_GRADING_CAPTURE_DIR=%s\n' "$NFL_GRADING_CAPTURE_DIR" >> "$GITHUB_ENV"
 season="$(python3 -c 'import json; print(json.load(open("data/schedule_full.json"))["season"])')"
-python3 scripts/capture_grading_inputs.py --season "$season" --output "$NFL_GRADING_CAPTURE_DIR"
+python3 scripts/capture_grading_inputs.py --season "$season" --output "$NFL_GRADING_CAPTURE_DIR" \
+  --schedule data/schedule_full.json --prior-review data/review.json
