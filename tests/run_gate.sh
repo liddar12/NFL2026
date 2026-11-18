@@ -87,13 +87,15 @@ echo "=================================================================="
 echo "GATE STEP ${step}: browser E2E (playwright web + pwa)"
 if [ -d "node_modules/@playwright/test" ]; then
   PW_FULL="/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
-  echo "  \$ npx playwright test --config tests/playwright.config.mjs"
+  # Bound browser concurrency independently of the developer machine's CPU
+  # count. The static server and standalone windows share this runner.
+  echo "  \$ npx playwright test --config tests/playwright.config.mjs --workers=${PW_WORKERS:-2}"
   echo "------------------------------------------------------------------"
   if [ -x "$PW_FULL" ]; then
     export PW_CHROMIUM="$PW_FULL"
     echo "  (using pre-installed Chromium: $PW_FULL)"
   fi
-  if npx playwright test --config tests/playwright.config.mjs; then
+  if npx playwright test --config tests/playwright.config.mjs --workers="${PW_WORKERS:-2}"; then
     echo "GATE STEP ${step} PASS: browser E2E"
   else
     echo "GATE STEP ${step} FAIL: browser E2E" >&2
