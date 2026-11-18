@@ -184,7 +184,7 @@ print(json.dumps({"kept": [p["gsis_id"] for p in w["players"]], "unchanged": jso
   assert.equal(r.counts.unknown_or_stale, 1);
 });
 
-test('pilot config: disabled, shadow serving, engine pinned to aacb19c7; the reader refuses anything else', () => {
+test('pilot config: disabled, shadow serving, engine pinned to the reviewed event-bound runtime; the reader refuses invalid settings', () => {
   const r = runPy(`
 import json, os, tempfile
 from scripts import pilot_config as pc
@@ -207,7 +207,7 @@ print(json.dumps({"ok": ok,
   "short_sha": refused({**base, "engine_commit": "aacb19c7"})}))`);
   assert.equal(r.ok.enabled, '0');
   assert.equal(r.ok.serving_mode, 'shadow');
-  assert.equal(r.ok.engine_commit, 'aacb19c73122f257449e977df40f2a2733991b2f');
+  assert.equal(r.ok.engine_commit, '69d37eb0d171f7999b94f706748f4635f9c58606');
   assert.equal(r.ok.freshness_profile, 'confirmed_inactives_v1');
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
