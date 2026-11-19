@@ -183,3 +183,31 @@ rejected a different attempt before contacting the engine, and recovered
 the same publication job after a lost reply. Fourteen local isolation checks
 and nine paired acceptance cases passed. GitHub event delivery and hosted
 access still require acceptance during rollout.
+
+## Daily outcome capture and registered recovery
+
+The opt-in outcome workflow runs at 12:42 UTC daily. On main, with
+`NFL_SELFLEARN_OUTCOME_MODE=record`, it selects regular-season weeks with a
+published FINAL in the previous fourteen days. That selection only scopes
+retrieval. Fresh raw scoreboard, statistics, snap and roster observations
+supply the actual grading evidence. Preparation uses no secret. The delivery
+step uses the outcome-specific token and private staging.
+
+GitHub retains only the run locator, application ID and request digest.
+To recover an application from a different runner, dispatch
+`selflearning-outcomes` with the original `source_run_id` and
+`source_run_attempt`. The client validates the registered request digest and
+membership before sending an existing server-assigned step. If the run stopped
+before registration, the pointer cannot reconstruct it. After registration,
+recovery uses the original private staging and journal records, without raw
+files or an outbox on the recovering runner.
+
+The workflow parses as YAML. Thirty-two focused tests passed with the pinned
+engine, including an active application that lost a step reply and resumed from
+IDs alone. A local PostgreSQL 17 rehearsal verified the complete forecast,
+publication and outcome cycle with the exact source `6dba43a6`. It deleted the
+original raw files and outbox, recovered the stored grade from its pointer and
+appended two corrected revisions, keeping the forecast and attestation intact.
+The local RPC bridge and in-process ASGI used synthetic provider bytes and
+in-memory private Storage. Hosted scheduling and persistence remain rollout
+checks. Evidence is in `code/evidence/nfl-outcome-pointer-native-20261119.log`.
