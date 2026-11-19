@@ -14,12 +14,12 @@ Starters: the latest depth-chart snapshot (`dt` max in the 2025+ release
 shape; `week` max in the legacy shape build_oline.py reads), rows at pos_rank /
 depth_team 1 whose position is an OL or DL-front spelling
 (build_injury_history.OL_POSITIONS / DL_FRONT_POSITIONS — OLB is not front),
-one entry per player. Verified on the 2026 release (2026-09-08): five OL per
-team (LT/LG/C/RG/RT) and a three- or four-man front (LDE/RDE/NT or
-LDE/LDT/RDT/RDE) by scheme. The join to the injury report is ESPN's athlete id
-against the chart's espn_id when injuries.json carries `athlete_id` (R70+),
-else (team, normalized name). A starter missing from the report is ACTIVE by
-construction of the report (ESPN lists only injured players).
+one entry per player. Five OL starters are expected per team (LT/LG/C/RG/RT).
+If fewer distinct starters are listed, the deficit is reported as unknown.
+DL normally has a three- or four-man front by scheme. The injury report join
+uses ESPN's athlete id against the chart's espn_id when injuries.json carries
+`athlete_id` (R70+), with (team, normalized name) as a fallback. A starter
+missing from the report is ACTIVE because ESPN lists only injured players.
 
 Honest when blind: when the nflverse release is unreachable the document says
 `available: false` with the reason, `teams` is empty and the counts are zero —
@@ -49,6 +49,7 @@ OUT_PATH = os.path.join(DATA, "line_report.json")
 INJURIES_PATH = os.path.join(DATA, "injuries.json")
 PREDS_PATH = os.path.join(DATA, "game_predictions.json")
 SEASON = 2026
+OL_STARTER_COUNT = 5
 SOURCE_LIVE = ("nflverse depth_charts_{season} (latest snapshot, pos_rank 1, OL + DL front) "
                "x ESPN injuries (data/injuries.json); annotation only, changes no number")
 SOURCE_UNAVAILABLE = ("unavailable: depth chart not reachable; no starters invented "
@@ -230,6 +231,8 @@ def cross(starters, inj_idx):
                     questionable.append(st["name"])
             block[grp] = {"starters": len(names), "names": names, "out": out,
                           "doubtful": doubtful, "questionable": questionable}
+            if grp == "ol" and len(names) < OL_STARTER_COUNT:
+                block[grp]["unknown_starters"] = OL_STARTER_COUNT - len(names)
             counts[grp + "_starters"] += len(names)
             counts[grp + "_out"] += len(out)
             counts[grp + "_doubtful"] += len(doubtful)
@@ -426,9 +429,10 @@ def selftest():
     assert c["teams"] == 1 and c["ol_out"] == 1 and c["dl_out"] == 1 and c["dl_doubtful"] == 1
     assert c["starters_matched"] == 4, c
     doc2 = build(2025, 18, legacy, injuries)
-    assert doc2["teams"]["LAR"]["ol"] == {"starters": 1, "names": ["Ram Tackle"],
-                                          "out": ["Ram Tackle"], "doubtful": [],
-                                          "questionable": []}, doc2["teams"]
+    assert doc2["teams"]["LAR"]["ol"] == {
+        "starters": 1, "unknown_starters": 4, "names": ["Ram Tackle"],
+        "out": ["Ram Tackle"], "doubtful": [], "questionable": [],
+    }, doc2["teams"]
     assert doc2["teams"]["LAR"]["dl"]["starters"] == 2, doc2["teams"]["LAR"]
     # The unavailable path: no starters, honest counts, the reason on the doc.
     off = build(2026, 1, None, injuries, snapshot_note="proxy 403")

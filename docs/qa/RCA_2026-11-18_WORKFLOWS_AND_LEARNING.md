@@ -1,6 +1,6 @@
 # Workflow reliability and shared learning release roadmap
 
-Revision 5. November 19, 2026, 8:44 AM CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+Revision 6. November 19, 2026, 9:03 a.m. CST (America/Chicago). Codex owns this work.
 
 ## Morning verification — November 19
 
@@ -12,10 +12,12 @@ browser tests. The OL-count test now passes on refreshed provider data; the loca
 partial-coverage fix still has not shipped. The live 4:17:02 a.m. CST pool retains
 `live_adjustment: null`, `held: no adopted correction`; main's pilot is disabled.
 
-Reconciliation source `53dbfcf1b9ddba7a96033e699c2c80f23978f3ae` includes the
-worker bound and OL fix, then merges the fixed `640df164` data snapshot. A full
-gate is running on that exact commit. Later data commits still need reconciliation
-before release; do not mistake this for current-production acceptance.
+Reconciliation source `3f38893237180e7392a88dddedd32cd348691a01` includes the
+worker bound, OL fix and captured review validation, then merges main through
+`539059ee`. Its full gate passed all eight steps at 9:01 a.m. CST. All 2,337
+feature tests passed, and browser E2E passed 364 tests with four existing
+data-dependent skips. That exact grading release is now merged into the disabled
+collection branch. Integrated and production acceptance remain open.
 
 The offline semantic audit passed: all 302 receipt/ledger files (37 offer books)
 and 150 FINAL score pairs remain intact; 274,625 leg comparisons have zero
@@ -59,9 +61,9 @@ supplies exactly 160 distinct starters. This annotation changes no prediction.
 The initial expanded full gate is no longer running. It ended with four subprocess
 failures and an unfinished r88 test, with no complete acceptance result. Worker
 bound `1c6c8b7a` passed nine focused tests without changing any timeout or assertion.
-The combined release is being reconciled with latest main on isolated branch
-`build/release-reconcile-20261118`, then regenerated from frozen captured inputs
-and tested as one exact commit. It remains a local release candidate.
+The isolated grading release `build/release-reconcile-20261118` subsequently
+passed its full gate after reconciliation with `539059ee` and replay of frozen
+captured inputs. It remains local.
 
 At 4:37 p.m. CST the public pool was Week 11, generated 4:05:10 p.m. CST, with
 historical `calibration_adopted: true` but `live_adjustment: null` and
@@ -93,6 +95,40 @@ There is no routine manual outcome grading step. Do not replace missing official
 inactive evidence with ESPN's observation-only didNotPlay list.
 
 ## Earlier checkpoint (retained evidence)
+
+### NFL release-candidate reconciliation
+
+The tested grading release reconciled the coverage branch with main at
+`539059ee`. It carries forward 42 additional Week 11 MY offers and two
+additional ATD game offers. The main line report uses the November 19 nflverse
+snapshot and identifies all five Pittsburgh starters. Historical grading
+was replayed from the November 18 ESPN capture at 2:21 p.m. CST. The replay
+checks that frozen evidence against the November 19 publication baseline.
+
+The first local candidate reconciled the coverage branch with main at `640df164`.
+The six generated-file conflicts started from main's copies. The grading
+and replay CLIs rebuilt their outputs from the retained v2 capture with network
+access blocked. The line-report CLI used the retained November 18 nflverse
+snapshot and main's injury file. Pittsburgh's offensive line shows four
+identified starters and one unknown because the source lists Brock Hoffman at
+both starting guard slots.
+
+The replay preserved 302 receipt, snapshot, archive and ledger files from main
+byte for byte, including all 37 offer files and 13 pending Week 11 game locks.
+The 150 captured ESPN finals match the prior and rebuilt facts and review.
+The prior-publication validator passed with 30,208 MY and 22,663 ATD gradeable
+cards, 274,625 leg comparisons and zero mismatches. Ten previously settled
+Week 10 terms now return `player_game_mismatch`; nine MY cards and four ATD
+cards that previously showed void are pending. Their offers remain intact.
+Other retained cards also reflect event-bound stat and participation corrections.
+The retained audit logs are under `code/evidence/nfl-release-reconcile-*`.
+
+The `640df164` candidate passed the smoke tests, all four calibration checks,
+and 364 browser tests. The data-contract and four feature failures shared one
+cause. The captured review reported unknown refit receipt membership, while
+the validator still expected matched counts to prove membership. The current
+candidate validates that review against captures and lock snapshots while
+preserving the unknown membership. Its full gate passed on `3f388932`.
 
 The new NFL source is `479ac73bcc14dbe5db0cc52f8de1f11cd903f68f` on
 `build/grading-coverage-20261118`. This checkpoint adds offer-derived grading

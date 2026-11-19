@@ -103,6 +103,12 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "unknown_starters": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "When the depth chart identifies fewer than five distinct rank-1 OL players, the difference from five. Optional for older reports. Unknown starters have no name or injury designation."
+              },
               "names": {
                 "type": "array",
                 "items": {

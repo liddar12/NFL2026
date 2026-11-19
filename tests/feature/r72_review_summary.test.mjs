@@ -18,10 +18,10 @@
  *      rule (event_type game, resolved, estimate false — an estimate receipt
  *      grades the pick but is not a refit input; another season's file is
  *      ignored), the newest IN-SEASON pass wins regardless of list order, and
- *      consumed_all is true only when that pass's n_resolved matches. On the
- *      COMMITTED data: graded_locks_total equals the count derived from
- *      data/snapshots/*_games_open.json, and week 1 right + wrong equals the
- *      graded picks — nothing pinned.
+ *      legacy consumed_all compares counts. Captured reviews count locks that
+ *      agree with measured FINAL scores and leave consumption unknown because
+ *      the archive has no receipt membership. Week 1 right + wrong equals the
+ *      graded picks in the committed review.
  *   5. THE ARTIFACT. data/review.json validates against the inlined schema, is
  *      written in the repo's one JSON convention, and carries every contract
  *      key partition U renders.
@@ -63,14 +63,14 @@ parlays = {p["parlay_id"]: p for p in w1["parlays"]}
 /* The exact rule scripts/refit._collect_resolved_rows("game") applies — counted
  * here from the FILES, independently of build_review, so the artifact cannot
  * agree with itself by construction. */
-function gradedReceipts(dir, season) {
+function gradedReceipts(dir, season, eligible = () => true) {
   let n = 0;
   for (const name of readdirSync(dir).sort()) {
     const m = /^(\d{4})_wk(\d{2})_games_open\.json$/.exec(name);
     if (!m || Number(m[1]) !== season) continue;
     const rows = JSON.parse(readFileSync(join(dir, name), 'utf8'));
     for (const r of rows) {
-      if (r.event_type === 'game' && r.resolved === true && r.estimate === false) n += 1;
+      if (r.event_type === 'game' && r.resolved === true && r.estimate === false && eligible(Number(m[2]), r)) n += 1;
     }
   }
   return n;
@@ -245,16 +245,91 @@ print(json.dumps({"fresh": verdict(doc, fx["tuning"]),
   assert.equal(r.absent, 'ok', 'no review.json yet: nothing to join');
 });
 
+test('captured learning join leaves equal-count different-cohort consumption unknown', () => {
+  const r = runPy(`${PRELUDE}
+import copy
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from scripts.validate_data import check_review_learning_join, ValidationError
+
+schedule = {g["game_id"]: g for g in fx["schedule"]["games"]}
+def final(game_id, home_score, away_score):
+    return {**schedule[game_id], "home_score": home_score, "away_score": away_score,
+            "status": "STATUS_FINAL"}
+
+archived = [final("G1", 27, 7), final("G2", 7, 27)]
+current = [final("G1", 27, 7), final("G5", 27, 7)]
+def members(finals):
+    return [row["event_id"] for rows in br.captured_learning_locks(fx["locks"], finals).values()
+            for row in br.graded_lock_rows(rows)]
+
+fx["locks"][2][0].update(resolved=True, actual=0, brier=0.2304, log_loss=0.6539)
+fx["captured_finals"] = True
+fx["finals"] = current
+label = ("ESPN grading capture 2026-09-22T04:00:00.123456Z (manifest identity " + "a" * 64
+         + ", 2 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-09-22T03:00:00Z")
+fx["sources"]["finals"] = label
+review = br.build(fx, "2026-09-22T12:00:00Z")
+with TemporaryDirectory() as directory:
+    for week, rows in fx["locks"].items():
+        (Path(directory) / f"2026_wk{week:02d}_games_open.json").write_text(json.dumps(rows), encoding="utf-8")
+
+    def verdict(change=lambda _: None):
+        value = copy.deepcopy(review)
+        change(value)
+        try:
+            check_review_learning_join(value, fx["tuning"], directory)
+            return "ok"
+        except ValidationError as exc:
+            return str(exc)
+
+    def replace_final(value):
+        game = next(g for g in value["weeks"]["2"]["games"] if g["game_id"] == "G5")
+        game["final_source"] = "lock_receipt"
+
+    print(json.dumps({"archive_cohort": members(archived), "current_cohort": members(current),
+      "learning": review["learning"], "valid": verdict(),
+      "true_claim": verdict(lambda d: d["learning"].update(consumed_all=True)),
+      "false_claim": verdict(lambda d: d["learning"].update(consumed_all=False)),
+      "week_count": verdict(lambda d: d["weeks"]["2"]["summary"]["learning"].update(graded_locks=0)),
+      "malformed_stamp": verdict(lambda d: d["sources"].update(finals=label.replace("a" * 64, "123"))),
+      "mixed_stamp": verdict(lambda d: d["sources"].update(finals="lock receipts; " + label)),
+      "fallback": verdict(replace_final)}))`);
+  assert.deepEqual(r.archive_cohort, ['G1', 'G2']);
+  assert.deepEqual(r.current_cohort, ['G1', 'G5']);
+  assert.equal(r.learning.graded_locks_total, r.learning.refit.n_resolved);
+  assert.equal(r.learning.consumed_all, null);
+  assert.equal(r.valid, 'ok');
+  assert.match(r.true_claim, /learning\.consumed_all is True.*give None/);
+  assert.match(r.false_claim, /learning\.consumed_all is False.*give None/);
+  assert.match(r.week_count, /weeks\.2\.summary\.learning\.graded_locks/);
+  assert.match(r.malformed_stamp, /malformed grading capture stamp/);
+  assert.match(r.mixed_stamp, /malformed grading capture stamp/);
+  assert.match(r.fallback, /captured FINAL evidence is inconsistent for week 2 game G5/);
+});
+
 test('learning lock (committed data): graded_locks_total derived from data/snapshots, never pinned', () => {
   assert.ok(existsSync(ARTIFACT), 'data/review.json is committed');
   const doc = JSON.parse(readFileSync(ARTIFACT, 'utf8'));
-  const fromFiles = gradedReceipts(SNAPSHOTS, doc.season);
+  const captureBound = doc.sources.finals?.startsWith('ESPN grading capture ');
+  const markedFinals = new Map(Object.entries(doc.weeks).flatMap(([week, block]) => block.games
+    .filter(g => g.final_source === 'espn_final' && g.final)
+    .map(g => [JSON.stringify([Number(week), g.game_id]), g])));
+  const fromFiles = gradedReceipts(SNAPSHOTS, doc.season, (week, row) => {
+    if (!captureBound) return true;
+    const game = markedFinals.get(JSON.stringify([week, String(row.event_id)]));
+    if (!game) return false;
+    const { home_score: home, away_score: away } = game.final;
+    return home !== away && row.actual === (home > away ? 0 : 1)
+      && Date.parse(row.as_of_utc) <= Date.parse(row.locked_utc)
+      && Date.parse(row.locked_utc) < Date.parse(game.kickoff_utc);
+  });
   assert.equal(doc.learning.graded_locks_total, fromFiles,
     'graded_locks_total == resolved measured game rows under data/snapshots/*_games_open.json');
   const perWeek = Object.values(doc.weeks).reduce((a, b) => a + b.summary.learning.graded_locks, 0);
   assert.equal(perWeek, fromFiles, 'the per-week counts sum to the total');
   if (doc.learning.refit) {
-    assert.equal(doc.learning.consumed_all, doc.learning.refit.n_resolved === fromFiles);
+    assert.equal(doc.learning.consumed_all, captureBound ? null : doc.learning.refit.n_resolved === fromFiles);
     assert.equal(doc.learning.refit.verdict, doc.learning.refit.adopted ? 'adopted' : 'held');
     // the refit line is the archive's newest in-season pass, re-derived here
     const tuning = JSON.parse(readFileSync(join(REPO_ROOT, 'data', 'model_tuning.json'), 'utf8'));
