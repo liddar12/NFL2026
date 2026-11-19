@@ -225,8 +225,9 @@ test('production is unchanged: only listed standalone tools and the locked test-
     'run_parlay_feedback.py', 'learning_history_guard.py',
     'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
     'export_outcome_capture.py', 'export_capture_application.py',
+    'run_collection_handoff.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
