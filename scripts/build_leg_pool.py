@@ -301,6 +301,24 @@ def drop_excluded(rows, excluded):
     return kept, len(rows) - len(kept)
 
 
+def prop_injury_expiry(weekly, week, generated):
+    """Carry the expiry of the injury report the weekly builder actually used."""
+    source = ((weekly or {}).get("model") or {}).get("injury_source") or {}
+    if source.get("verified") is not True or source.get("week") != week:
+        return None
+    if source.get("source_week") not in (None, week):
+        return None
+    as_of, checked, stamp, received = map(receipts.instant, (
+        generated, source.get("checked_utc"), source.get("source_updated_utc"), source.get("received_utc"),
+    ))
+    max_age = source.get("max_age_hours")
+    if (None in (as_of, checked, stamp, received) or checked > as_of
+            or type(max_age) not in (int, float) or not 0 < max_age <= 24):
+        return None
+    expires = min(stamp, received) + _dt.timedelta(hours=max_age)
+    return expires.astimezone(_dt.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def build(inputs):
     bt = inputs["pool_backtest"]
     calib = {p: v for p, v in (bt.get("calibration") or {}).items() if v}
@@ -374,6 +392,7 @@ def build(inputs):
         "season": parlays_doc.get("season"),
         "week": parlays_doc.get("week"),
         "generated_utc": generated,
+        "prop_injury_expires_utc": prop_injury_expiry(inputs.get("player_weekly"), pool_week, generated),
         "model": bt.get("model"),
         "calibration_adopted": adopted,
         # R100 — the 2026 correction layer in force (None = the 2023-25 fit alone).

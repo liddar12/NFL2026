@@ -127,6 +127,22 @@ test('GAME: a kind one game cannot fill is an honest empty state, and PUBLISHED 
   await expect(page.locator('#atd-list')).toBeHidden();
 });
 
+test('GAME withholds browser-built props when the injury evidence expires on an open page', async ({ page }) => {
+  const now = Date.now();
+  await page.clock.install({ time: new Date(now) });
+  await page.route('**/data/leg_pool.json*', (route) => route.fulfill({
+    json: { ...pool, prop_injury_expires_utc: new Date(now + 60000).toISOString() },
+  }));
+  await openTypes(page);
+  await page.click('#td-controls [data-type="atd"]');
+  await expect(page.locator('#atd-list .type-card').first()).toBeVisible();
+  await page.clock.fastForward(61000);
+  await expect(page.locator('#atd-list .type-card')).toHaveCount(0);
+  await expect(page.locator('#atd-list [role="status"]')).toContainText('props are on hold');
+  await page.click('#td-controls [data-type="published"]');
+  await expect(page.locator('#parlays-list .card.parlay').first()).toBeVisible();
+});
+
 test('RC-02: WEEK at 8, 9 and 10 legs switches to GAME at the displayed 7, and every card has 7 — reload too', async ({ page }) => {
   await openTypes(page);
   await page.click('.scopeseg [data-seg="week"]');

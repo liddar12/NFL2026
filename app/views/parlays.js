@@ -119,6 +119,7 @@ import {
 import { renderParlayCard } from '../render.js';
 import { summarizePortfolio, renderPortfolioRisk, renderGameSelectionRisk } from '../portfolio-risk.js';
 import { confChip, confClass } from '../bet-types.js';
+import { propInjuryDeadline, PROP_INJURY_HOLD } from '../prop-freshness.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -1102,7 +1103,9 @@ export default async function mountParlays(el) {
     if (!on) syncGradedChrome();
   }
 
+  let propExpiryTimer;
   async function paintAtd() {
+    clearTimeout(propExpiryTimer);
     const on = atdActive();
     setAtdMode(!!on);
     if (!on) return;
@@ -1125,7 +1128,10 @@ export default async function mountParlays(el) {
     }
     const games = sched && sched.games;
     const types = typesOn();
-    const legs = btMod.typeLegs(typePool, types, games);
+    const now = Date.now();
+    const expiry = propInjuryDeadline(typePool);
+    const usesProps = types.some((type) => type !== 'ml');
+    const legs = btMod.typeLegs(typePool, types, games, now);
     // RC-02 — ONE effective count, the very value the stepper displays, for the
     // generator too (a saved WEEK 10 shows 7 on GAME and must build 7).
     const n = btMod.stepValue({ ...typeState, types }, scope, legCountsForScope());
@@ -1153,7 +1159,15 @@ export default async function mountParlays(el) {
         + (mix.length ? mix.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
           : `<div class="state">${res.reason}</div>`);
     }
-    listEl.innerHTML = html;
+    const freshnessNote = usesProps && expiry <= now
+      ? `<div class="state" role="status">${PROP_INJURY_HOLD}</div>` : '';
+    listEl.innerHTML = freshnessNote + html;
+    clearTimeout(propExpiryTimer);
+    if (usesProps && Number.isFinite(expiry) && expiry > now) {
+      propExpiryTimer = setTimeout(() => {
+        if (listEl.isConnected && atdActive()) paintAtd();
+      }, Math.min(expiry - now + 25, 2147483647));
+    }
     betShown.atd = cards;
     if (cards.length) addBetButtons(listEl, cards);
   }

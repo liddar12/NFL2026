@@ -32,6 +32,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import {
   SEED_TEAM as SEED, EXPECTED_CARDS, EXPECTED_BANDS, EXPECTED_BAND_TEXT, UPCOMING_GAMES,
   SKIP_REASON,
@@ -312,4 +313,20 @@ test('MY exposure reflects the displayed cards and clears when the seed is remov
   await page.locator('#mp-seeds [data-drop]').click();
   await expect(panel).toBeHidden();
   await expect(page.locator('#mp-list .mp-card')).toHaveCount(0);
+});
+
+test('MY removes stale player props even when the page stays open', async ({ page }) => {
+  const pool = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url), 'utf8'));
+  const now = Date.now();
+  await page.clock.install({ time: new Date(now) });
+  await page.route('**/data/leg_pool.json*', (route) => route.fulfill({
+    json: { ...pool, prop_injury_expires_utc: new Date(now + 60000).toISOString() },
+  }));
+  await openMy(page, PHONE);
+  const playerProps = page.locator('#mp-list .leg-nm').filter({ hasText: /yds$/ });
+  await expect(playerProps.first()).toBeVisible();
+  await page.clock.fastForward(61000);
+  await expect(playerProps).toHaveCount(0);
+  await expect(page.locator('#mp-freshness')).toContainText('props are on hold');
+  await expect(page.locator('#mp-freshness')).toBeVisible();
 });

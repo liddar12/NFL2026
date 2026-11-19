@@ -339,3 +339,19 @@ Evidence and the path to the retained local journal are in
 `code/evidence/nfl-local-live-observation-20261119.json`. Retain that journal
 and the original source files so later official outcomes can be matched
 to the same receipt IDs.
+
+## Browser expiry for injury evidence
+
+The leg-pool producer now copies the expiry of the injury evidence that the
+weekly model actually used. The browser rejects new yardage and Anytime TD
+legs from a pool whose evidence expired or was unverified when generated.
+Moneylines remain available to the applicable builder. Existing archived
+cards and grades keep their original terms. Older pools without this metadata
+retain their prior behavior.
+
+MY and the Week/Game bet-type views show an explicit hold and reevaluate an
+open page at expiry. The retained Week 11 inputs produce an injury expiry
+of 4:15:59 p.m. CST on November 19, using the source's actual timestamp and
+the existing 12-hour policy. Clock-controlled browser checks crossed expiry
+on both Game and MY. This expiry is distinct from the still-shadow-only
+T-90 official inactive confirmation.

@@ -10,6 +10,7 @@
     "season": {"type": ["integer", "null"]},
     "week": {"type": ["integer", "null"]},
     "generated_utc": {"type": "string", "minLength": 1},
+    "prop_injury_expires_utc": {"type": ["string", "null"], "minLength": 1, "description": "Expiry of the injury evidence used by the weekly builder. Null withholds new browser-built player props. Absent in older pools."},
     "model": {"type": "string", "minLength": 1},
     "base_model_version": {"type": "string", "minLength": 1},
     "learning_receipt_policy": {"type": "string", "enum": ["base_receipt_v1"]},
