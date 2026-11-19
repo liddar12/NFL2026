@@ -184,6 +184,33 @@ print(json.dumps({"kept": [p["gsis_id"] for p in w["players"]], "unchanged": jso
   assert.equal(r.counts.unknown_or_stale, 1);
 });
 
+test('both prop collections are withheld on conflicts, and an assessment applies only to its original pool', () => {
+  const r = runPy(`${PRELUDE}
+from copy import deepcopy
+def prop(pid, team, market):
+    return {"gsis_id":f"espn-{pid}", "team":team, "game_id":G["game_id"], "market":market, "rungs":[{}]}
+pool = {"players":[prop("222", "SF", "wr_rec_yds"), prop("333", "SF", "rb_rush_yds")],
+        "atd_legs":[prop("222", "WAS", "anytime_td"), prop("333", "SF", "anytime_td"),
+                    prop("3126486", "SF", "anytime_td")]}
+evidence = {G["game_id"]: [ev(active_ids=["222","333"])]}
+a = ic.assess(pool, [G], T("2026-10-19T22:55:00Z"), evidence, REG)
+w = ic.withhold(pool, a)
+changed = deepcopy(pool)
+changed["atd_legs"][1]["rungs"].append({"line": 1})
+try:
+    ic.withhold(changed, a)
+    mismatch = None
+except ValueError as exc:
+    mismatch = str(exc)
+print(json.dumps({"kept":{k:[p["gsis_id"] for p in v] for k,v in w.items()}, "mismatch":mismatch,
+                  "rungs":a["rungs"], "conflicts":[p["collection"] for p in a["players"] if
+                    p["reason"] == "conflicting_player_team"]}))`);
+  assert.deepEqual(r.kept, { players: ['espn-333'], atd_legs: ['espn-333'] });
+  assert.equal(r.mismatch, 'inactive_assessment_pool_mismatch');
+  assert.deepEqual(r.rungs, { offered: 2, withheld: 3 });
+  assert.deepEqual(r.conflicts, ['players', 'atd_legs']);
+});
+
 test('pilot config: disabled, shadow serving, engine pinned to the reviewed event-bound runtime; the reader refuses invalid settings', () => {
   const r = runPy(`
 import json, os, tempfile

@@ -296,3 +296,26 @@ leaving the cap in shadow when the priority is maximizing full hits. The
 15 focused feature tests passed, including the cutoff, tie and missing
 snapshot cases. Output is in
 `code/evidence/nfl-week-portfolio-historical-replay-20261119.json`.
+
+## T-90 coverage across prop markets
+
+The shadow assessment now covers yardage and Anytime TD rows in the same
+pool. It withholds ambiguous team identities for that game and binds the
+assessment to the exact pool bytes represented by its canonical digest.
+Applying a stale assessment to a refreshed pool is refused.
+
+On the retained Week 11 pool, Indianapolis at Houston had 72 yardage rungs
+and 14 Anytime TD rungs eligible one second before T-90. At 5:45 p.m. CST
+on November 19, all 86 would be withheld without confirmation, leaving
+1,125 prop rungs in other games. This is a shadow counterfactual from the
+retained pool. No serving flag or source registration changed.
+
+On November 19 the NFL's public inactives page showed a placeholder. The
+documented BALLDONTLIE designations endpoint distinguishes active status
+from participation and exposes a record update time, but the documentation
+does not establish a complete official list with its posting timestamp.
+Provider qualification still requires a pregame capture of complete,
+game-bound records and reviewed player ID mappings.
+
+- [NFL Inactives](https://www.nfl.com/inactives/)
+- [BALLDONTLIE Player Designations](https://nfl.balldontlie.io/#get-player-designations)
