@@ -15,6 +15,10 @@
     "weeks"
   ],
   "properties": {
+    "grading_policy": {
+      "type": "string",
+      "enum": ["event_bound_v1"]
+    },
     "kind": {
       "type": "string",
       "enum": [
@@ -50,6 +54,22 @@
           "players"
         ],
         "properties": {
+          "players_by_game": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["y", "td"],
+                "properties": {
+                  "y": {"type": ["array", "string", "null"], "items": {"type": "number"}},
+                  "td": {"type": ["integer", "string", "null"]},
+                  "reason": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          },
           "games": {
             "type": "object",
             "additionalProperties": {

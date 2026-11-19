@@ -41,10 +41,11 @@
 #
 # Env (test seams; the defaults are what production runs):
 #   PUBLISH_BRANCH        main or release/*           (default: main when unset)
-#   PUBLISH_VALIDATE_CMD  the contract gate            (default: python3 scripts/validate_data.py)
+#   PUBLISH_VALIDATE_CMD  test-only gate override      (default: contracts + grading/inventory vs fetched SHA)
 #   PUBLISH_ARCHIVE_CMD   week-archive re-mirror       (default: python3 scripts/build_parlay_archive.py)
 #   PUBLISH_BACKOFF_S     seconds between attempts     (default: 5)
 #   PUBLISH_ATTEMPTS      how many attempts            (default: 5)
+#   PUBLISH_RECEIPT_PATH  optional Actions handoff file (run ID, attempt, SHA/noop)
 #
 # Docs: docs/PUBLISH.md.
 set -euo pipefail
@@ -52,7 +53,6 @@ set -euo pipefail
 BOT_NAME="nfl2026-bot"
 BOT_EMAIL="bot@j5lagenticstrategy.com"
 
-VALIDATE_CMD="${PUBLISH_VALIDATE_CMD:-python3 scripts/validate_data.py}"
 # The week-archive builder the R111 fallback re-runs (a stub in the race test).
 ARCHIVE_CMD="${PUBLISH_ARCHIVE_CMD:-python3 scripts/build_parlay_archive.py}"
 BACKOFF_S="${PUBLISH_BACKOFF_S:-5}"
@@ -65,6 +65,24 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MERGE_LEDGERS="$HERE/merge_ledgers.py"
 
 log()  { echo "publish: $*"; }
+
+# Compare receipt inventory to the exact fetched publication, including after
+# a race/fallback. The caller owns this immutable SHA; it is not a client input.
+validate_candidate() {
+  if [ -n "${PUBLISH_VALIDATE_CMD:-}" ]; then
+    eval "$PUBLISH_VALIDATE_CMD"
+  else
+    python3 scripts/validate_data.py && node scripts/validate_grading.mjs --prior-ref "$1"
+  fi
+}
+
+# A downstream workflow consumes this only after the publisher step succeeds.
+# Exclusive creation prevents a stale receipt from being reused.
+write_receipt() {
+  if [ -n "${PUBLISH_RECEIPT_PATH:-}" ]; then
+    (set -o noclobber; printf '%s %s %s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$1" > "$PUBLISH_RECEIPT_PATH")
+  fi
+}
 
 # Set by replay_onto when it had to resolve conflicts (and therefore already ran
 # the contract gate on the merged tree). A CLEAN rebase is validated too: every
@@ -261,10 +279,10 @@ replay_onto() {
     # Validate the MERGED tree while the rebase can still be abandoned. This is
     # the only moment where both are true: the tree is what would be published,
     # and abandoning it costs nothing.
-    if ! eval "$VALIDATE_CMD"; then
+    if ! validate_candidate "$onto"; then
       log "  the merged tree fails the data contracts; falling back to the published regenerable files and keeping this run's ledgers and snapshots"
       fall_back_to_theirs "$onto"
-      if ! eval "$VALIDATE_CMD"; then
+      if ! validate_candidate "$onto"; then
         die "the merged tree fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). This run's generation and the other writer's commit are both intact; re-run the pipeline against the new head."
       fi
     fi
@@ -286,7 +304,8 @@ main() {
     echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
     exit 2
   fi
-  local message="$1" attempt remote replayed
+  local message="$1" attempt remote replayed generation_base candidate
+  generation_base="$(git rev-parse HEAD)"
 
   # Resolve and validate before changing config, the index or local history.
   local target_branch="${PUBLISH_BRANCH-main}"
@@ -299,12 +318,23 @@ main() {
     exit 2
   fi
 
+  if [ -n "${PUBLISH_RECEIPT_PATH:-}" ] &&
+     { ! [[ "${GITHUB_RUN_ID:-}" =~ ^[1-9][0-9]*$ && "${GITHUB_RUN_ATTEMPT:-}" =~ ^[1-9][0-9]*$ ]] ||
+       [ -e "$PUBLISH_RECEIPT_PATH" ] || [ -L "$PUBLISH_RECEIPT_PATH" ] ||
+       [ ! -w "$(dirname "$PUBLISH_RECEIPT_PATH")" ]; }; then
+    die "publisher receipt requires an unused path in a writable directory and the Actions run ID and attempt."
+  fi
+  if [ -n "${PUBLISH_RECEIPT_PATH:-}" ] && [ "${GITHUB_REF:-}" != "refs/heads/$target_branch" ]; then
+    die "the Actions source ref must match the publish branch $target_branch."
+  fi
+
   git config user.name  "$BOT_NAME"
   git config user.email "$BOT_EMAIL"
 
   git add data/
   if git diff --cached --quiet; then
     echo "No data changes to commit."
+    write_receipt noop
     exit 0
   fi
   git commit -q -m "$message"
@@ -317,20 +347,29 @@ main() {
     remote="$(git rev-parse FETCH_HEAD)"
 
     if ! git merge-base --is-ancestor "$remote" HEAD; then
+      # A data-only race can be reconciled. A new producer, input fixture or
+      # contract requires a new generation; passing a shape check cannot prove
+      # these old outputs were built by the newly landed implementation.
+      if ! git diff --quiet "$generation_base" "$remote" -- \
+          scripts/ app/ config/ fixtures/ data/fixtures/ data/contracts/ \
+          app.js index.html package.json package-lock.json .github/workflows/; then
+        die "generation source changed while this run was building. Nothing was published; rerun against the current source."
+      fi
       log "attempt $attempt: $target_branch moved to $(git rev-parse --short "$remote") while this run was working; re-creating this run's data commit on top of it"
       replay_onto "$remote"
       log "attempt $attempt: replayed onto $(git rev-parse --short "$remote"); head is now $(git rev-parse --short HEAD)"
-      if [ "$REBASE_RESOLVED" -eq 0 ] && ! eval "$VALIDATE_CMD"; then
+      if [ "$REBASE_RESOLVED" -eq 0 ] && ! validate_candidate "$remote"; then
         log "  the replayed tree fails the data contracts; falling back to the published regenerable files and keeping this run's ledgers and snapshots"
         replayed="$(git rev-parse HEAD)"
         fall_back_to_theirs "$remote"
         if git diff --cached --quiet "$remote" -- .; then
           git reset --quiet --hard "$remote"
           log "  nothing of this run's survives the fallback; $target_branch already holds it"
+          write_receipt noop
           exit 0
         fi
         git -c core.editor=true commit --quiet --amend --no-edit
-        if ! eval "$VALIDATE_CMD"; then
+        if ! validate_candidate "$remote"; then
           git reset --quiet --hard "$replayed"
           die "the tree replayed onto $(git rev-parse --short "$remote") fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). Nothing on $target_branch changed; re-run the pipeline against the new head."
         fi
@@ -342,8 +381,20 @@ main() {
       fi
     fi
 
-    if git push origin "HEAD:refs/heads/$target_branch"; then
-      log "attempt $attempt: published $(git rev-parse --short HEAD) to $target_branch"
+    # This also covers the clean fast-forward path, which previously relied on
+    # a workflow check that could precede intervening changes to the candidate.
+    if ! validate_candidate "$remote"; then
+      die "final candidate failed contracts or grading parity. Nothing was published."
+    fi
+    candidate="$(git rev-parse HEAD)"
+    if [ "$candidate" = "$remote" ]; then
+      log "attempt $attempt: $target_branch already holds this run's changes"
+      write_receipt noop
+      exit 0
+    fi
+    if git push origin "$candidate:refs/heads/$target_branch"; then
+      log "attempt $attempt: published $candidate to $target_branch"
+      write_receipt "$candidate"
       if [ "$FELL_BACK" -eq 1 ]; then
         echo "::warning::published this run's ledger entries and snapshots, but its regenerable files lost to the other writer's (they did not join across files); the next run regenerates them"
       fi

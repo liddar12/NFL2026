@@ -29,6 +29,10 @@
     "generated_utc": {
       "type": "string"
     },
+    "grading_policy": {
+      "type": "string",
+      "enum": ["event_bound_v1"]
+    },
     "source": {
       "type": "string"
     },
@@ -565,6 +569,7 @@
             "type": "string",
             "enum": [
               "no_stat_line",
+              "missing_stat_value",
               "ambiguous",
               "player_unidentified",
               "no_line",
@@ -572,7 +577,21 @@
               "no_model_prob",
               "tie",
               "push",
-              "no_final_score"
+              "no_final_score",
+              "game_unknown",
+              "season_mismatch",
+              "receipt_team_mismatch",
+              "no_final",
+              "week_not_published",
+              "identity_conflict",
+              "identity_position_conflict",
+              "identity_unverified",
+              "identity_unverified_team_change",
+              "source_game_invalid",
+              "source_game_conflict",
+              "player_game_mismatch",
+              "source_team_conflict",
+              "snap_count_unknown"
             ]
           }
         }

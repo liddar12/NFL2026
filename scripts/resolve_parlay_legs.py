@@ -28,10 +28,8 @@ HONESTY RULES
   * A locked prop leg whose player has no stat line in a published week is
     `unresolved` with a reason (no_stat_line / ambiguous / player_unidentified /
     no_line) — never a miss, never a 0.
-  * The join is the selection's abbreviated name + the market's position + the
-    game's two teams; when the ledger locked the full name from the pool it is
-    tried first (exact normalised name, unique), then the abbreviation
-    (initial + surname, unique). resolve_estimates.norm_name is the normaliser.
+  * Player yards bind to the recorded fixture and a verified player identity.
+    A stat line from another fixture is unresolved, even in the same week.
   * The SEED pricing (scripts/models/parlay_builder.seed_prop_prob, imported) is
     recomputed from the locked p_team on exactly the legs the calibrated model
     priced, so seed vs calibrated is compared on identical legs.
@@ -59,13 +57,14 @@ if _ROOT not in sys.path:
 from scripts.build_parlay_ledger import (PROP_POSITION, GAME_MARKETS,  # noqa: E402
                                          ledger_path)
 from scripts.models.parlay_builder import seed_prop_prob  # noqa: E402
-from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
+from scripts.resolve_estimates import RELEASE_URL, captured_final_scores, fetch_csv, norm_name  # noqa: E402
 from scripts.scrape.renames import normalize_team  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "parlay_leg_scores.json")
 SNAPSHOT_GLOB = os.path.join(DATA, "snapshots", "*_games_open.json")
 YARDS_COL = {"QB": "passing_yards", "RB": "rushing_yards", "WR": "receiving_yards"}
+GRADING_POLICY = "event_bound_v1"
 _POS_ALIAS = {"FB": "RB", "HB": "RB"}
 _EPS = 1e-6
 _ABBREV_RE = re.compile(r"^(?P<initial>[^\s.]+)\.?\s+(?P<last>.+)$")
@@ -99,6 +98,15 @@ def _yards(row, col):
         return 0.0
 
 
+def _finite_yards(value):
+    """Measured zero is valid; missing and nonfinite values are unknown."""
+    try:
+        yards = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return yards if math.isfinite(yards) else None
+
+
 # --------------------------------------------------------------------------- #
 # stats index + player join                                                     #
 # --------------------------------------------------------------------------- #
@@ -125,9 +133,13 @@ def index_stats(csv_rows):
         if not n:
             continue
         team = normalize_team(r.get("team") or r.get("recent_team"))
+        yards = {p: _finite_yards(r.get(c)) for p, c in YARDS_COL.items()}
         by_week.setdefault(wk, []).append({
             "name": name, "norm": n, "pos": pos, "team": team,
-            "yards": {p: _yards(r, c) for p, c in YARDS_COL.items()},
+            "player_id": r.get("player_id"), "source_game_id": r.get("game_id"),
+            "opponent": normalize_team(r.get("opponent_team")),
+            "yards": {p: value if value is not None else 0.0 for p, value in yards.items()},
+            "primary_yards_known": yards[pos] is not None,
         })
     return by_week
 
@@ -205,6 +217,9 @@ def index_td(csv_rows):
             continue
         tds = int(_yards(r, "rushing_tds") + _yards(r, "receiving_tds"))
         by_week.setdefault(wk, []).append({"norm": n, "pos": pos, "tds": tds,
+                                           "player_id": r.get("player_id"),
+                                           "source_game_id": r.get("game_id"),
+                                           "opponent": normalize_team(r.get("opponent_team")),
                                            "team": normalize_team(r.get("team") or r.get("recent_team"))})
     return by_week
 
@@ -224,14 +239,20 @@ def index_snaps(csv_rows):
         blk = by_week.setdefault(wk, {"teams": set(), "rows": []})
         blk["teams"].add(team)
         try:
-            snaps = float(r.get("offense_snaps") or 0)
-        except ValueError:
-            snaps = 0.0
-        blk["rows"].append({"norm": norm_name(r.get("player")), "team": team, "snaps": snaps})
+            snaps = float(r.get("offense_snaps"))
+            snaps_valid = math.isfinite(snaps) and snaps >= 0
+        except (TypeError, ValueError):
+            snaps, snaps_valid = 0.0, False
+        blk["rows"].append({"norm": norm_name(r.get("player")), "team": team,
+                            "snaps": snaps if snaps_valid else 0.0, "snaps_valid": snaps_valid,
+                            "pos": _POS_ALIAS.get(r.get("position"), r.get("position")),
+                            "pfr_player_id": r.get("pfr_player_id"),
+                            "source_game_id": r.get("game_id"),
+                            "opponent": normalize_team(r.get("opponent"))})
     return by_week
 
 
-def grade_atd(leg, week, td_by_week, snaps_by_week=None):
+def grade_atd(leg, week, td_by_week, snaps_by_week=None, context=None):
     """(result, actual, reason) for one anytime-TD leg.
 
     hit  = a stat line for him that week with >= 1 rushing or receiving TD;
@@ -241,6 +262,11 @@ def grade_atd(leg, week, td_by_week, snaps_by_week=None):
     void = his team's snap sheet is published and he is not on it (did not play —
            the book voids the leg, and so do we: never a loss);
     pending otherwise. Never a miss or a void without the evidence for it."""
+    if context is not None:
+        from scripts.player_outcomes import grade_fact, player_event_facts
+        fact = player_event_facts(leg, week, None, (td_by_week or {}).get(int(week)),
+                                  (snaps_by_week or {}).get(int(week)), context)
+        return grade_fact(fact, ATD_MARKET)
     rows = (td_by_week or {}).get(int(week))
     if rows is None:
         return "pending", None, "week_not_published"
@@ -278,8 +304,10 @@ def _ref(leg, reason):
             "selection": leg["selection"], "reason": reason}
 
 
-def resolve_props(ledger, csv_rows):
+def resolve_props(ledger, csv_rows, context=None):
     """(resolved rows, unresolved refs, weeks_with_rows) for locked prop legs."""
+    from scripts.player_outcomes import grade_fact, player_event_facts
+
     by_week = index_stats(csv_rows)
     resolved, unresolved = [], []
     for leg in ledger.get("legs") or []:
@@ -294,20 +322,39 @@ def resolve_props(ledger, csv_rows):
         if leg.get("p_team") is None or leg.get("team") is None:
             unresolved.append(_ref(leg, "player_unidentified"))
             continue
-        row, why = find_player(leg, by_week[wk])
-        if row is None:
-            unresolved.append(_ref(leg, why))
-            continue
-        yards = row["yards"][leg["position"]]
+        if context is None:
+            # Metadata-free fixture callers retain the legacy result shape.
+            row, why = find_player(leg, by_week[wk])
+            if row is None:
+                unresolved.append(_ref(leg, why))
+                continue
+            if not row.get("primary_yards_known", True):
+                unresolved.append(_ref(leg, "missing_stat_value"))
+                continue
+            yards = row["yards"][leg["position"]]
+            name = row["name"]
+            hit = yards >= float(leg["line"])
+        else:
+            # The learning ledger requires actual stat lines. Snap-only zeroes
+            # and DNPs are used by settlement, never as this ledger's labels.
+            fact = player_event_facts(leg, wk, by_week[wk], None, None, context)
+            result, yards, why = grade_fact(fact, leg["market"], leg["line"])
+            if result not in ("hit", "miss"):
+                unresolved.append(_ref(leg, why))
+                continue
+            selection = str(leg["selection"])
+            match = _PROP_SEL_RE.match(selection)
+            name = leg.get("player") or (match.group("abbrev") if match else selection)
+            hit = result == "hit"
         resolved.append({
             "week": wk, "game_id": leg["game_id"], "market": leg["market"],
             "position": leg["position"], "selection": leg["selection"],
-            "player": row["name"], "team": leg["team"], "line": float(leg["line"]),
+            "player": name, "team": leg["team"], "line": float(leg["line"]),
             "mu": leg.get("mu"), "sd": leg.get("sd"), "z": leg.get("z"),
             "p_team": float(leg["p_team"]), "pricing": leg.get("pricing"),
             "model_prob": float(leg["model_prob"]),
             "seed_prob": round(seed_prop_prob(leg["p_team"]), 4),
-            "actual": yards, "hit": bool(yards >= float(leg["line"])),
+            "actual": yards, "hit": bool(hit),
         })
     return resolved, unresolved, sorted(by_week)
 
@@ -536,13 +583,16 @@ def fetch_finals_espn(season, weeks, fetch=None):
 
 
 def load_finals(finals_path=None, snapshot_glob=SNAPSHOT_GLOB, season=None, weeks=(),
-                offline=False, review_path=REVIEW_PATH, espn_fetch=None):
+                offline=False, review_path=REVIEW_PATH, espn_fetch=None, cache_dir=None, stats_path=None):
     """(finals index, source label). A --finals file wins outright. Otherwise the
     layers merge, later ones overriding earlier ones per game: lock receipts
     (winner only) < data/review.json (scores, offline) < ESPN live (scores, on
     the runner when `weeks` are given and not `offline`). The label names every
     layer that contributed a game, so the document never claims a source it
     did not use."""
+    captured = captured_final_scores(season, cache_dir, finals_path, stats_path)
+    if captured is not None:
+        return finals_index(captured["games"]), captured["source"]
     if finals_path:
         doc = _load(finals_path)
         rows = doc.get("games") if isinstance(doc, dict) else doc
@@ -589,16 +639,18 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
     ledger_rel = os.path.relpath(lpath, _ROOT)
     ledger, prop_rows, game_rows, unresolved, skipped = None, [], [], [], None
     source = None
-    # The weeks whose finals matter: every week with a locked game leg on file.
+    # A locked game or player leg requires the result of its recorded fixture.
     game_weeks = ()
     if os.path.exists(lpath):
         try:
             game_weeks = sorted({int(l["week"]) for l in _load(lpath).get("legs") or []
-                                 if l.get("locked") and l.get("market") in GAME_MARKETS})
+                                 if l.get("locked") and (l.get("market") in GAME_MARKETS
+                                                        or l.get("market") in PROP_POSITION)})
         except (OSError, ValueError, KeyError, TypeError):
             game_weeks = ()
     finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
-                                        offline=offline)
+                                        offline=offline, cache_dir=cache_dir, stats_path=dry_run_csv)
+    event_bound = not dry_run_csv
     if not os.path.exists(lpath):
         skipped = ("no ledger at %s yet — scripts/build_parlay_ledger.py appends the first "
                    "legs on the daily run; nothing to resolve" % ledger_rel)
@@ -619,13 +671,20 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
                 if rows is None:
                     skipped = why
             if rows is not None:
-                prop_rows, p_unres, weeks = resolve_props(ledger, rows)
+                event_bound = event_bound or bool(rows and "game_id" in rows[0])
+                ctx = None
+                if event_bound:
+                    from scripts.player_outcomes import load_context
+                    ctx = load_context(DATA, season, finals, cache_dir)
+                prop_rows, p_unres, weeks = resolve_props(ledger, rows, ctx)
                 unresolved += p_unres
                 if not prop_rows and not game_rows:
                     skipped = ("stats_player_week_%d.csv has %d rows (weeks %s) but no "
                                "locked leg resolved" % (season, len(rows), weeks))
     doc = document(season, ledger, ledger_rel, prop_rows, game_rows, unresolved, skipped,
                    finals_source, now, source=source)
+    if event_bound:
+        doc["grading_policy"] = GRADING_POLICY
     stream = sys.stdout
     if dry_run_csv and out_path is None:
         print(json.dumps(doc, ensure_ascii=True, indent=2))

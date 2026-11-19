@@ -265,7 +265,7 @@ test('the DEFAULT contract gate is the real validate_data.py', () => {
   // The env var exists so this test can substitute a toy validator. If the
   // default drifted, production would publish through a gate that is not the
   // gate, and no other test would notice.
-  assert.match(PUBLISH_SRC, /PUBLISH_VALIDATE_CMD:-python3 scripts\/validate_data\.py/);
+  assert.match(PUBLISH_SRC, /python3 scripts\/validate_data\.py && node scripts\/validate_grading\.mjs --prior-ref "\$1"/);
   assert.match(PUBLISH_SRC, /PUBLISH_BACKOFF_S:-5/, 'the production backoff is 5s');
   assert.match(PUBLISH_SRC, /PUBLISH_ATTEMPTS:-5/, 'the production bound is 5 attempts');
 });
@@ -322,6 +322,26 @@ test('(a) clean push: no race, one commit, exit 0', () => {
   } finally { cleanup(world); }
 });
 
+test('the default gate receives the fetched full SHA and a refusal cannot publish', () => {
+  const world = makeWorld();
+  try {
+    const remote = git(world.a, 'rev-parse', 'origin/main');
+    mkdirSync(join(world.a, 'scripts'), { recursive: true });
+    // Execute the production default command routing with bounded stand-ins.
+    // The actual inventory validator has separate lost-receipt acceptance tests.
+    writeFileSync(join(world.a, 'scripts/validate_data.py'), 'print("contracts checked")\n');
+    writeFileSync(join(world.a, 'scripts/validate_grading.mjs'),
+      `import {writeFileSync} from 'node:fs'; writeFileSync('gate-arguments.json', JSON.stringify(process.argv.slice(2))); process.exit(1);\n`);
+    generate(world.a, { asOf: TA, legSel: 'A ML', cardId: 'aaa', pHome: 0.61 });
+    const refused = publish(world.a, 'data: held inventory', { PUBLISH_VALIDATE_CMD: '' });
+    assert.equal(refused.status, 1, refused.out);
+    assert.match(refused.out, /contracts checked/);
+    assert.deepEqual(readJson(world.a, 'gate-arguments.json'), ['--prior-ref', remote]);
+    assert.equal(git(world.remote, 'rev-parse', 'main'), remote);
+    assert.match(refused.out, /Nothing was published/);
+  } finally { cleanup(world); }
+});
+
 test('(a2) nothing generated: exit 0 and no commit at all', () => {
   const world = makeWorld();
   try {
@@ -330,6 +350,20 @@ test('(a2) nothing generated: exit 0 and no commit at all', () => {
     assert.equal(r.status, 0, r.out);
     assert.match(r.out, /No data changes to commit\./);
     assert.equal(git(world.a, 'rev-parse', 'HEAD'), before);
+  } finally { cleanup(world); }
+});
+
+test('(a3) even a clean push must pass the final candidate gate', () => {
+  const world = makeWorld();
+  try {
+    const before = git(world.a, 'rev-parse', 'origin/main');
+    generate(world.a, { asOf: TA, legSel: 'A ML', cardId: 'aaa', pHome: 0.61 });
+    const r = publish(world.a, 'data: rejected candidate',
+      { PUBLISH_VALIDATE_CMD: 'python3 tools/validate_stub.py --fail' });
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /final candidate failed/);
+    git(world.a, 'fetch', '--quiet', 'origin', 'main');
+    assert.equal(git(world.a, 'rev-parse', 'FETCH_HEAD'), before);
   } finally { cleanup(world); }
 });
 
@@ -380,7 +414,7 @@ test('(b) two racing generations: both ledgers keep both entries, the regenerabl
 
 /* ---------- (c) an owner code push -------------------------------------- */
 
-test('(c) a code commit lands on main mid-run: the data commit replays onto it', () => {
+test('(c) a code commit lands on main mid-run: stale producer output is refused', () => {
   const world = makeWorld();
   try {
     generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
@@ -389,30 +423,31 @@ test('(c) a code commit lands on main mid-run: the data commit replays onto it',
     writeFileSync(join(world.a, 'app.js'), '// owner edit during the run\n');
     git(world.a, 'commit', '--quiet', '-am', 'app: owner edit');
     git(world.a, 'push', '--quiet', 'origin', 'main');
+    const mainBefore = git(world.a, 'rev-parse', 'HEAD');
 
     const r = publish(world.b, 'data: daily pipeline refresh [skip actions]');
-    assert.equal(r.status, 0, r.out);
-    assert.match(r.out, /main moved to/);
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /generation source changed/);
 
     const peek = join(world.root, 'peek-code');
     git(world.root, 'clone', '--quiet', world.remote, peek);
     assert.equal(readFileSync(join(peek, 'app.js'), 'utf8'), '// owner edit during the run\n',
                  'the owner\'s commit survives untouched');
-    assert.equal(readJson(peek, 'data/game_predictions.json').generated_utc, TB);
-    assert.equal(git(peek, 'log', '--format=%s', '-1'),
-                 'data: daily pipeline refresh [skip actions]');
+    assert.equal(readJson(peek, 'data/game_predictions.json').generated_utc, T0);
+    assert.equal(git(peek, 'rev-parse', 'HEAD'), mainBefore);
   } finally { cleanup(world); }
 });
 
 test('(c2) a CLEAN replay is put through the contract gate as well', () => {
   const world = makeWorld();
   try {
-    // No conflicted path here (the owner touched only app.js), but the merged
+    // No conflicted path here (the owner touched only documentation), but the merged
     // tree still pairs this run's documents with a head it never saw. The
     // contracts check joins across files, so the gate runs either way.
     generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
-    writeFileSync(join(world.a, 'app.js'), '// owner edit during the run\n');
-    git(world.a, 'commit', '--quiet', '-am', 'app: owner edit');
+    writeFileSync(join(world.a, 'README.md'), 'Owner documentation edit during the run\n');
+    git(world.a, 'add', 'README.md');
+    git(world.a, 'commit', '--quiet', '-m', 'docs: owner edit');
     git(world.a, 'push', '--quiet', 'origin', 'main');
     const mainBefore = git(world.a, 'rev-parse', 'origin/main');
 
@@ -782,21 +817,22 @@ test('(f) a remote that always rejects: exactly 5 attempts, then one ::error:: a
 test('a conflict outside data/ aborts loudly instead of picking a side', () => {
   const world = makeWorld();
   try {
-    // Contrived on purpose: a pipeline commit never contains code. If one ever
-    // does, the script must refuse rather than resolve it by rule.
-    writeFileSync(join(world.a, 'app.js'), '// owner edit\n');
-    git(world.a, 'commit', '--quiet', '-am', 'app: owner edit');
+    // Documentation does not trip the producer-source guard. A conflicting
+    // stray non-data commit must still fail in the rebase conflict handler.
+    writeFileSync(join(world.a, 'README.md'), 'Owner documentation\n');
+    git(world.a, 'add', 'README.md');
+    git(world.a, 'commit', '--quiet', '-m', 'docs: owner edit');
     git(world.a, 'push', '--quiet', 'origin', 'main');
 
     generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
-    writeFileSync(join(world.b, 'app.js'), '// conflicting pipeline edit\n');
-    git(world.b, 'add', 'app.js');
-    git(world.b, 'commit', '--quiet', '-m', 'app: stray code change');
+    writeFileSync(join(world.b, 'README.md'), 'Conflicting pipeline documentation\n');
+    git(world.b, 'add', 'README.md');
+    git(world.b, 'commit', '--quiet', '-m', 'docs: stray pipeline change');
 
     const r = publish(world.b, 'data: daily pipeline refresh [skip actions]');
     assert.notEqual(r.status, 0);
     assert.match(r.out, /::error::conflict outside data\//);
-    assert.match(r.out, /app\.js/);
+    assert.match(r.out, /README\.md/);
     assert.ok(!existsSync(join(world.b, '.git/rebase-merge')), 'the rebase is abandoned');
   } finally { cleanup(world); }
 });

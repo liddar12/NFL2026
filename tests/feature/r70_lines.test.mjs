@@ -183,7 +183,7 @@ print(json.dumps({"doc": doc, "off": off}))`);
   const kc = r.doc.teams.KC;
   assert.equal(r.doc.available, true);
   assert.equal(r.doc.week, 3);
-  assert.deepEqual(kc.ol, { starters: 2, names: ['Left Tackle', 'Right Tackle'], out: ['Left Tackle'],
+  assert.deepEqual(kc.ol, { starters: 2, unknown_starters: 3, names: ['Left Tackle', 'Right Tackle'], out: ['Left Tackle'],
     doubtful: [], questionable: ['Right Tackle'] }, 'ESPN id joins across spellings; rank 2 and old snapshot ignored');
   assert.deepEqual(kc.dl, { starters: 1, names: ['Left End'], out: ['Left End'], doubtful: [], questionable: [] },
     'WLB is not front; IR is out');
@@ -192,6 +192,61 @@ print(json.dumps({"doc": doc, "off": off}))`);
   assert.equal(r.off.reason, 'proxy 403');
   assert.deepEqual(r.off.teams, {});
   for (const v of Object.values(r.off.counts)) assert.equal(v, 0);
+});
+
+function assertLineReportCounts(doc) {
+  const teams = Object.entries(doc.teams);
+  assert.equal(doc.counts.teams, teams.length);
+  let knownOl = 0;
+  let knownDl = 0;
+  for (const [team, {ol, dl}] of teams) {
+    assert.equal(ol.starters, ol.names.length, `${team}: known OL starters`);
+    assert.equal(dl.starters, dl.names.length, `${team}: known DL starters`);
+    const missingOl = 5 - ol.starters;
+    assert.ok(missingOl >= 0, `${team}: at most five distinct OL starters`);
+    assert.equal(ol.unknown_starters ?? missingOl, missingOl, `${team}: unknown OL starters`);
+    knownOl += ol.starters;
+    knownDl += dl.starters;
+  }
+  assert.equal(doc.counts.ol_starters, knownOl, 'total OL counts only identified starters');
+  assert.equal(doc.counts.dl_starters, knownDl, 'total DL counts only identified starters');
+}
+
+test('R70: a player listed as both rank-1 guards leaves one unknown OL starter', () => {
+  const doc = runPy(`
+import json
+import scripts.validate_data as vd
+from scripts import build_line_report as blr
+chart = [
+    ("LT", "3", "1", "Left Tackle", "00-1"),
+    ("LG", "4", "1", "Shared Guard", "00-2"),
+    ("C", "5", "1", "Center", "00-3"),
+    ("RG", "6", "1", "Shared Guard", "00-2"),
+    ("RT", "7", "1", "Right Tackle", "00-4"),
+    ("LG", "4", "2", "Backup Left Guard", "00-5"),
+    ("RG", "6", "2", "Backup Right Guard", "00-6"),
+]
+rows = [{"dt": "2026-11-18T16:23:40Z", "team": "PIT", "pos_abb": pos, "pos_slot": slot,
+         "pos_rank": rank, "player_name": name, "gsis_id": gsis_id}
+        for pos, slot, rank, name, gsis_id in chart]
+doc = blr.build(2026, 11, rows, [{"team": "PIT", "player": "Shared Guard", "availability": "OUT"}])
+with open("data/contracts/line_report.schema.json") as f:
+    vd.validate_against_schema(doc, json.load(f), "duplicate_guard")
+print(json.dumps(doc))`);
+  assert.equal(doc.available, true);
+  assert.deepEqual(doc.teams.PIT.ol, {starters: 4, unknown_starters: 1,
+    names: ['Left Tackle', 'Shared Guard', 'Center', 'Right Tackle'], out: ['Shared Guard'],
+    doubtful: [], questionable: []});
+  assert.equal(doc.counts.ol_starters, 4);
+  assert.equal(doc.counts.ol_out, 1);
+  assertLineReportCounts(doc);
+  assert.throws(() => assertLineReportCounts({...doc, counts: {...doc.counts, ol_starters: 5}}),
+    /total OL counts only identified starters/);
+  const partialOl = doc.teams.PIT.ol;
+  partialOl.unknown_starters = 2;
+  assert.throws(() => assertLineReportCounts(doc), /unknown OL starters/);
+  delete partialOl.unknown_starters;
+  assertLineReportCounts(doc);
 });
 
 test('R70: the committed data/line_report.json validates against its contract and matches the pipeline week', () => {
@@ -203,16 +258,16 @@ schema = json.load(open("data/contracts/line_report.schema.json"))
 doc = json.load(open("data/line_report.json"))
 vd.validate_against_schema(doc, schema, "line_report")
 vd.validate_against_schema(blr.unavailable(2026, 1, "x"), schema, "unavailable")
-print(json.dumps({"available": doc["available"], "week": doc["week"], "teams": len(doc["teams"]), "counts": doc["counts"]}))`);
+print(json.dumps(doc))`);
   assert.equal(typeof r.available, 'boolean');
   const preds = readJson('data/game_predictions.json');
   assert.equal(r.week, preds.week);
+  assertLineReportCounts(r);
   if (r.available) {
-    assert.equal(r.teams, 32);
-    assert.equal(r.counts.ol_starters, 160, 'five OL per team');
+    assert.equal(r.counts.teams, 32);
     assert.ok(r.counts.dl_starters >= 96 && r.counts.dl_starters <= 128, '3- or 4-man fronts');
   } else {
-    assert.equal(r.teams, 0);
+    assert.equal(r.counts.teams, 0);
     assert.equal(r.counts.ol_starters, 0);
   }
   const schema = readJson('data/contracts/line_report.schema.json');
@@ -298,6 +353,22 @@ test('R70: lineReportTeams gates on available:true and the week; players.js and 
   assert.equal(q, '<span class="line-chip" title="Own offensive line questionable: Some Guard">OL: 1 Q</span>',
     'doubtful/questionable without an out reads as Q; a healthy opponent adds nothing');
   assert.equal(playersChips(REPORT.teams, 'KC', null), playersChips(REPORT.teams, 'KC', 'DEN'));
+});
+
+test('R70: line chips show the OL coverage gap with or without known injuries and on older reports', () => {
+  const report = structuredClone(REPORT);
+  const ol = report.teams.DEN.ol;
+  ol.starters = 4;
+  for (const chips of [playersChips, lineupChips]) {
+    assert.match(chips(report.teams, 'DEN', 'DEN'),
+      /title="Own offensive line 4\/5 starters identified in the depth chart">OL: 1 unknown<\/span>/);
+  }
+  ol.unknown_starters = 1;
+  ol.out = ['Known Guard'];
+  for (const chips of [playersChips, lineupChips]) {
+    assert.match(chips(report.teams, 'DEN', 'DEN'),
+      /class="line-chip line-chip--out" title="Own offensive line out: Known Guard · 4\/5 starters identified in the depth chart">OL: 1 out · 1 unknown<\/span>/);
+  }
 });
 
 test('R70: the PLAYERS splice sits after the BASE line and leaves the r51 .p-unit order intact', () => {

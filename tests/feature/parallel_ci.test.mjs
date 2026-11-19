@@ -8,11 +8,12 @@ import {spawnSync} from 'node:child_process';
 const root = new URL('../../', import.meta.url);
 const workflow = readFileSync(new URL('.github/workflows/ci.yml', root), 'utf8');
 const runner = readFileSync(new URL('tests/run_gate.sh', root), 'utf8');
+const featureCommand = workers => `node --test --test-concurrency=${workers} tests/feature/probe.mjs`;
 const commands = [
   'python3 scripts/validate_data.py', 'bash tests/smoke.sh',
-  'node --test tests/feature/probe.mjs',
+  featureCommand(4),
   ...['weekly', 'parlay', 'kdst', 'leg_pool'].map(name => `python3 scripts/backtest_${name}.py --gate`),
-  'npx playwright test --config tests/playwright.config.mjs',
+  'npx playwright test --config tests/playwright.config.mjs --workers=2',
 ];
 
 function jobs(text) {
@@ -95,22 +96,63 @@ test('real runner dispatch is exhaustive, disjoint, ordered, explicit and propag
     mkdirSync(join(directory, 'node_modules/@playwright/test'), {recursive: true});
     writeFileSync(join(directory, 'tests/run_gate.sh'), runner);
     writeFileSync(join(directory, 'tests/feature/probe.mjs'), '');
-    const stub = '#!/bin/bash\ncommand="${0##*/} $*"\nprintf "%s\\n" "$command" >> "$COMMAND_LOG"\nif [ "$command" = "$FAIL_COMMAND" ]; then exit 7; fi\n';
+    const cpuFixture = join(directory, 'cpu-count.cjs');
+    writeFileSync(cpuFixture, "require('node:os').availableParallelism = () => Number(process.env.AVAILABLE_CPUS);\n");
+    const stub = `#!/bin/bash
+if [ "\${0##*/}" = node ] && [ "$1" = -p ]; then
+  printf '%s\\n' cpu-probe >> "$COMMAND_LOG"
+  exec "$NODE_EXE" --require "$CPU_FIXTURE" "$@"
+fi
+command="\${0##*/} $*"
+printf '%s\\n' "$command" >> "$COMMAND_LOG"
+if [ "$command" = "$FAIL_COMMAND" ]; then exit 7; fi
+`;
     for (const tool of ['python3', 'bash', 'node', 'npx']) writeFileSync(join(bin, tool), stub, {mode: 0o755});
-    function run(args = [], failure = '') {
+    function run(args = [], {failure = '', browserWorkers = '', featureWorkers, availableCpus = 10} = {}) {
       writeFileSync(log, '');
+      const env = {...process.env, PATH: bin + ':' + process.env.PATH, COMMAND_LOG: log,
+        FAIL_COMMAND: failure, PW_WORKERS: browserWorkers, NODE_EXE: process.execPath,
+        CPU_FIXTURE: cpuFixture, AVAILABLE_CPUS: String(availableCpus)};
+      delete env.FEATURE_WORKERS;
+      if (featureWorkers !== undefined) env.FEATURE_WORKERS = featureWorkers;
       const result = spawnSync('/bin/bash', [join(directory, 'tests/run_gate.sh'), ...args], {
-        encoding: 'utf8', timeout: 5000,
-        env: {...process.env, PATH: bin + ':' + process.env.PATH, COMMAND_LOG: log, FAIL_COMMAND: failure},
+        encoding: 'utf8', timeout: 5000, env,
       });
-      return {...result, commands: readFileSync(log, 'utf8').trim().split('\n').filter(Boolean)};
+      const invocations = readFileSync(log, 'utf8').trim().split('\n').filter(Boolean);
+      return {...result, commands: invocations.filter(command => command !== 'cpu-probe'),
+        cpuProbes: invocations.filter(command => command === 'cpu-probe').length};
     }
     const all = run(), core = run(['--partition', 'core']), features = run(['--partition', 'features']);
     assert.equal(all.status, 0, all.stderr);
     assert.deepEqual(all.commands, commands, 'default preserves every original command and order');
     assert.deepEqual(run(['--partition', 'all']).commands, commands);
+    assert.deepEqual(run([], {browserWorkers: '3'}).commands, [
+      ...commands.slice(0, -1), commands.at(-1).replace('--workers=2', '--workers=3'),
+    ], 'an explicit worker budget changes only browser concurrency');
     assert.deepEqual(core.commands, commands.filter((_, i) => i !== 2));
     assert.deepEqual(features.commands, [commands[2]]);
+    assert.equal(core.cpuProbes, 0, 'core must run without Node CPU detection');
+    for (const [availableCpus, workers] of [[1, 1], [2, 1], [3, 2], [4, 3], [5, 4], [10, 4]]) {
+      const result = run(['--partition', 'features'], {availableCpus});
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.cpuProbes, 1);
+      assert.deepEqual(result.commands, [featureCommand(workers)], `${availableCpus} available CPUs`);
+    }
+    const override = run([], {featureWorkers: '8'});
+    assert.equal(override.status, 0, override.stderr);
+    assert.equal(override.cpuProbes, 0);
+    assert.deepEqual(override.commands, commands.map(command => command === featureCommand(4) ? featureCommand(8) : command));
+    for (const featureWorkers of ['', '0', '-1', '1.5', '2e1', '2 3', 'all']) {
+      const result = run(['--partition', 'features'], {featureWorkers});
+      assert.equal(result.status, 2, JSON.stringify(featureWorkers));
+      assert.match(result.stderr, /FEATURE_WORKERS must be a positive integer/);
+      assert.equal(result.cpuProbes, 0);
+      assert.deepEqual(result.commands, []);
+    }
+    const coreWithInvalidOverride = run(['--partition', 'core'], {featureWorkers: 'invalid'});
+    assert.equal(coreWithInvalidOverride.status, 0, coreWithInvalidOverride.stderr);
+    assert.equal(coreWithInvalidOverride.cpuProbes, 0);
+    assert.deepEqual(coreWithInvalidOverride.commands, core.commands);
     for (const result of [core, features]) {
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /GATE PARTITION .* RESULT: PASS \(partial checks only\)/);
@@ -123,7 +165,7 @@ test('real runner dispatch is exhaustive, disjoint, ordered, explicit and propag
     }
     for (const command of commands) {
       for (const args of [[], ['--partition', command === commands[2] ? 'features' : 'core']]) {
-        const result = run(args, command);
+        const result = run(args, {failure: command});
         assert.equal(result.status, 1, command);
         assert.doesNotMatch(result.stdout, /RESULT: PASS/);
       }

@@ -148,7 +148,7 @@ with tempfile.TemporaryDirectory()as temporary:
   const { command, timeout } = r.calls[0];
   assert.deepEqual(command.slice(1, 4), ['-I', '-S', '-B']);
   assert.ok(command.includes('--execute'));
-  assert.equal(command.at(-1), 'aacb19c73122f257449e977df40f2a2733991b2f');
+  assert.equal(command.at(-1), '889e147e84b01c28898f268eb89f91c978ef490f');
   assert.ok(!command.some(value => /as.of|observed.utc|fake.clock/.test(value)));
   assert.equal(timeout, 330);
   assert.equal(r.same, true);

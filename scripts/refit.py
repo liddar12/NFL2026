@@ -88,7 +88,7 @@ from scripts.harness import metrics  # noqa: E402
 from scripts.harness import snapshot as snap  # noqa: E402
 from scripts.models import elo as elo_mod  # noqa: E402
 from scripts.optimize.never_regress import should_adopt  # noqa: E402
-from scripts.resolve_locks import LOCK_GLOB  # noqa: E402
+from scripts.resolve_locks import LOCK_GLOB, compatible_resolved_game_lock  # noqa: E402
 from scripts.scrape import espn  # noqa: E402
 
 PRIOR_SEASON = 2025  # mirrors scripts/build_predictions.py
@@ -528,18 +528,30 @@ def adoption_receipt(effective):
 # ---------------------------------------------------------------------------
 # Driver.
 # ---------------------------------------------------------------------------
-def _collect_resolved_rows(event_type):
+def _collect_resolved_rows(event_type, captured=None):
     """All resolved, measured rows of `event_type` across data/snapshots/*_games_open.json."""
     rows = []
+    finals = {}
+    if captured is not None:
+        finals = {(g["week"], g["game_id"]): g for g in captured["games"]}
     for path in sorted(glob.glob(os.path.join(snap.SNAPSHOT_DIR, LOCK_GLOB))):
-        for r in snap.load_snapshot(os.path.basename(path)):
+        name = os.path.basename(path)
+        week = None
+        if captured is not None:
+            season, token, _ = name.split("_", maxsplit=2)
+            if season != str(captured["season"]) or not token.startswith("wk") or not token[2:].isdigit():
+                continue
+            week = int(token[2:])
+        for r in snap.load_snapshot(name):
             if (r.get("event_type") == event_type and r.get("resolved")
-                    and not r.get("estimate", True)):
+                    and not r.get("estimate", True)
+                    and (captured is None or compatible_resolved_game_lock(
+                        r, finals.get((week, str(r.get("event_id"))))))):
                 rows.append(r)
     return rows
 
 
-def _enrich_with_raw_elo(rows):
+def _enrich_with_raw_elo(rows, captured=None):
     """Attach home_elo_raw/away_elo_raw (unreverted end-of-2025 ratings) to each row.
 
     Teams come from data/schedule_full.json (game_id -> home/away); ratings from
@@ -547,8 +559,12 @@ def _enrich_with_raw_elo(rows):
     game_id is missing from the schedule are dropped loudly — grading a game we
     cannot identify would be a silent mis-attribution.
     """
-    with open(SCHEDULE_PATH, encoding="utf-8") as fh:
-        by_id = {str(g["game_id"]): g for g in json.load(fh)["games"]}
+    if captured is not None:
+        games = captured["schedule"]["games"]
+    else:
+        with open(SCHEDULE_PATH, encoding="utf-8") as fh:
+            games = json.load(fh)["games"]
+    by_id = {str(g["game_id"]): g for g in games}
     finals_prior = espn.fetch_final_results(PRIOR_SEASON)
     print(f"espn finals {PRIOR_SEASON}: {len(finals_prior)} FINAL games "
           f"-> raw (unreverted) Elo ratings")
@@ -681,8 +697,10 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--selftest" in argv:
         return selftest()
+    from scripts.resolve_estimates import captured_final_scores
+    captured = captured_final_scores()
     now = _utc_now()
-    resolved = _collect_resolved_rows("game")
+    resolved = _collect_resolved_rows("game", captured)
     print(f"refit: {len(resolved)} resolved game lock rows under data/snapshots/")
 
     if not resolved:
@@ -694,7 +712,7 @@ def main(argv=None):
 
     doc = _load_tuning()
     current = live_game_params(doc)
-    rows = _enrich_with_raw_elo(resolved)
+    rows = _enrich_with_raw_elo(resolved, captured)
     # Off-grid: wide bounds, refined to 0.5 Elo / 0.005 revert, adoption judged on
     # held-out folds, boundary-clamped fits refused (see cross_validated_refit).
     result = cross_validated_refit(rows, current, axes=GAME_AXES, folds=FOLDS,

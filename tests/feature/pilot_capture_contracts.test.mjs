@@ -200,6 +200,88 @@ with tempfile.TemporaryDirectory() as root:
   assert.deepEqual(r.errors, Array(3).fill('raw_source_hash_or_size_mismatch'));
 });
 
+test('outcome capture only includes roster evidence by opt-in and keeps its use identity-only', () => {
+  const r = runPy(String.raw`
+with tempfile.TemporaryDirectory() as root:
+    legacy = fixture.bundle()
+    with_roster = fixture.bundle(include_roster=True)
+    minimal = fixture.bundle(include_roster=True, roster_headers=fixture.ROSTER_IDENTITY_HEADERS)
+    roster = capture.source_observation(with_roster, capture.ROSTERS_PROFILE)
+    raw = with_roster["raw_objects"][roster["raw_sha256"]]
+    with patch.object(capture, "http_fetcher", side_effect=AssertionError("unexpected network")):
+        legacy_ok = capture.load_capture(capture.save_capture(legacy, root)) == legacy
+        roster_ok = capture.load_capture(capture.save_capture(with_roster, root)) == with_roster
+        capture.verify_capture(minimal)
+    print(json.dumps({"legacy_ok": legacy_ok, "roster_ok": roster_ok,
+        "legacy_profiles": [s["profile"] for s in legacy["manifest"]["sources"]],
+        "roster_profiles": [s["profile"] for s in with_roster["manifest"]["sources"]],
+        "season_plan_size": len(capture.fetch_plan(2026, list(range(1, 19)), include_roster=True)),
+        "roster": roster, "raw_team_retained": b"MIN" in raw,
+        "previous_sources_unchanged": with_roster["manifest"]["sources"][:3] == legacy["manifest"]["sources"],
+        "publication_status": with_roster["manifest"]["publication_status"],
+        "crosswalk": capture.csv_rows(with_roster, capture.ROSTERS_PROFILE),
+        "minimal_crosswalk": capture.csv_rows(minimal, capture.ROSTERS_PROFILE)}))
+`);
+  const legacyProfiles = ['espn_scoreboard_v1', 'nflverse_stats_player_v1', 'nflverse_snap_counts_v1'];
+  assert.equal(r.legacy_ok, true);
+  assert.equal(r.roster_ok, true);
+  assert.deepEqual(r.legacy_profiles, legacyProfiles);
+  assert.deepEqual(r.roster_profiles, [...legacyProfiles, 'nflverse_rosters_v1']);
+  assert.equal(r.season_plan_size, 21);
+  assert.equal(r.roster.week, null);
+  assert.equal(r.roster.source_url, 'https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2026.csv');
+  assert.equal(r.roster.evidence_class, 'observed_source_snapshot');
+  assert.equal(r.roster.upstream_updated_utc, null);
+  assert.equal(r.publication_status, 'source_capture_not_public_forecast_evidence');
+  assert.equal(r.raw_team_retained, true);
+  assert.equal(r.previous_sources_unchanged, true);
+  assert.deepEqual(r.crosswalk, [{ season: '2026', espn_id: 'fixture-1', gsis_id: '00-fixture', pfr_id: 'OneAl00' }]);
+  assert.deepEqual(r.minimal_crosswalk, r.crosswalk);
+});
+
+test('outcome capture rejects malformed, misplaced and byte-tampered roster evidence', () => {
+  const result = runPy(String.raw`
+def rejected(action):
+    try:
+        action()
+    except capture.CaptureError as exc:
+        return str(exc)
+    raise AssertionError("malformed roster capture was accepted")
+
+bundle = fixture.bundle(include_roster=True)
+roster = capture.source_observation(bundle, capture.ROSTERS_PROFILE)
+raw_id = roster["raw_sha256"]
+tampered = copy.deepcopy(bundle)
+tampered["raw_objects"][raw_id] += b" "
+reordered = copy.deepcopy(bundle)
+sources = reordered["manifest"]["sources"]
+sources[-2], sources[-1] = sources[-1], sources[-2]
+manifest = reordered["manifest"]
+manifest["capture_id"] = capture._fingerprint({k: v for k, v in manifest.items() if k != "capture_id"})
+minimum = fixture.ROSTER_IDENTITY_HEADERS
+with tempfile.TemporaryDirectory() as root:
+    path = capture.save_capture(bundle, root)
+    raw_path = Path(root) / "objects" / (raw_id.split(":")[1] + ".bin")
+    raw_path.write_bytes(tampered["raw_objects"][raw_id])
+    disk_tamper = rejected(lambda: capture.load_capture(path))
+print(json.dumps({
+    "columns": {name: rejected(lambda: fixture.bundle(include_roster=True, roster_headers=tuple(k for k in minimum if k != name)))
+                for name in minimum},
+    "wrong_season": rejected(lambda: fixture.bundle(include_roster=True, roster_rows=[fixture.roster_row(season="2025")])),
+    "raw_tamper": rejected(lambda: capture.verify_capture(tampered)),
+    "disk_tamper": disk_tamper,
+    "order": rejected(lambda: capture.verify_capture(reordered)),
+}))
+`);
+  assert.deepEqual(result, {
+    columns: Object.fromEntries(['season', 'espn_id', 'gsis_id', 'pfr_id'].map((field) => [field, 'missing_csv_columns'])),
+    wrong_season: 'csv_period_mismatch',
+    raw_tamper: 'raw_source_hash_or_size_mismatch',
+    disk_tamper: 'raw_source_hash_or_size_mismatch',
+    order: 'source_spec_mismatch',
+  });
+});
+
 test('changed raw correction appends a vintage; repeated captures retain producer identity', () => {
   const r = runPy(String.raw`
 with tempfile.TemporaryDirectory() as root:

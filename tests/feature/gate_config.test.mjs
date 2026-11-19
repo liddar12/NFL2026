@@ -27,7 +27,7 @@ test("run_gate.sh runs the four steps in the documented order", () => {
   const steps = [
     /run_step "validate data contracts"\s+python3 scripts\/validate_data\.py/,
     /run_step "smoke tests"\s+bash tests\/smoke\.sh/,
-    /run_step "feature tests \(incl\. AA contrast\)" node --test tests\/feature\/\*\.mjs/,
+    /run_step "feature tests \(incl\. AA contrast\)" node --test --test-concurrency="\$feature_workers" tests\/feature\/\*\.mjs/,
     /npx playwright test --config tests\/playwright\.config\.mjs/,
   ];
   let at = -1;

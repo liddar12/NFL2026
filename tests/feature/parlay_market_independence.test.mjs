@@ -214,10 +214,14 @@ const VALIDATOR_PY = `
 import json, sys
 sys.path.insert(0, ".")
 from scripts.validate_data import check_parlay_model_independence, ValidationError
+from scripts.models.parlay_builder import derive_candidate_legs
 
+fav_game = {"game_id": "g2", "home": "SEA", "away": "NE",
+            "probs": {"home": 0.887, "away": 0.113}}
 preds = {"games": [
     {"game_id": "g1", "home": "KC", "away": "DEN",
      "probs": {"home": 0.406, "away": 0.594}},
+    fav_game,
 ]}
 
 def verdict(doc):
@@ -227,8 +231,8 @@ def verdict(doc):
     except ValidationError as exc:
         return str(exc)
 
-def parlay(legs):
-    return {"parlays": [{"parlay_id": "p1", "scope": "game", "game_id": "g1",
+def parlay(legs, game_id="g1"):
+    return {"parlays": [{"parlay_id": "p1", "scope": "game", "game_id": game_id,
                          "legs": legs}]}
 
 # The OLD shape: the book's de-vigged away cover prob in model_prob, the IMPL
@@ -236,14 +240,27 @@ def parlay(legs):
 old_shape = parlay([{"market": "spread", "selection": "KC -3",
                      "model_prob": 0.5108, "implied_prob": 0.5338}])
 # The side-mismatch on its own: our number, but attributed to the other team.
-mislabelled = parlay([{"market": "spread", "selection": "KC -3",
-                       "model_prob": 0.6771, "implied_prob": 0.4892}])
+mislabelled = parlay([{"market": "moneyline", "selection": "KC ML",
+                       "model_prob": 0.594, "implied_prob": 0.55}])
 # A total leg reappearing.
 total_leg = parlay([{"market": "total", "selection": "Over 44.5",
                      "model_prob": 0.52, "implied_prob": 0.5238}])
-# The market feed's number landing in BOTH columns.
-same_both = parlay([{"market": "moneyline", "selection": "DEN ML",
-                     "model_prob": 0.45, "implied_prob": 0.45}])
+# A copied market price differs from the prediction for the named team.
+copied_price = parlay([{"market": "moneyline", "selection": "DEN ML",
+                       "model_prob": 0.45, "implied_prob": 0.45}])
+
+def fav_leg(home_price, away_price):
+    return derive_candidate_legs(fav_game, market={
+        "moneyline": {"home_prob": home_price, "away_prob": away_price},
+    })[0]
+
+# Hold the prediction fixed and move the book from agreement to favoring NE.
+coincidence = fav_leg(0.887, 0.113)
+changed_market = fav_leg(0.35, 0.65)
+
+wrong_game = parlay([changed_market])
+off_slate = parlay([dict(coincidence, selection="BUF ML")], "g2")
+unknown_market = parlay([dict(coincidence, market="team_total")], "g2")
 # The FIXED shape (R51): a spread leg at NO EDGE (0.5), book price in IMPL.
 fixed = parlay([{"market": "spread", "selection": "DEN +3",
                  "model_prob": 0.5, "implied_prob": 0.5108},
@@ -256,7 +273,14 @@ print(json.dumps({
     "old_shape": verdict(old_shape),
     "mislabelled": verdict(mislabelled),
     "total_leg": verdict(total_leg),
-    "same_both": verdict(same_both),
+    "copied_price": verdict(copied_price),
+    "coincidence": coincidence,
+    "coincidence_verdict": verdict(parlay([coincidence], "g2")),
+    "changed_market": changed_market,
+    "changed_market_verdict": verdict(parlay([changed_market], "g2")),
+    "wrong_game": verdict(wrong_game),
+    "off_slate": verdict(off_slate),
+    "unknown_market": verdict(unknown_market),
     "fixed": verdict(fixed),
 }))
 `;
@@ -265,11 +289,26 @@ test('the gate check REDS on the old shape and passes the fixed one', () => {
   const r = runPy(VALIDATOR_PY);
   assert.ok(r.old_shape, 'the book price in model_prob MUST red the gate');
   assert.match(r.old_shape, /NO EDGE \(R51\)/);
-  assert.ok(r.mislabelled, 'a leg naming one team and pricing the other MUST red');
+  assert.match(r.mislabelled, /model_prob 0\.594 != our model's win probability 0\.4060 for KC/);
   assert.ok(r.total_leg, 'a total leg MUST red — no scoring model exists');
   assert.match(r.total_leg, /no scoring\/total model/);
-  assert.ok(r.same_both, 'model_prob == the market feed probability MUST red');
+  assert.match(r.copied_price, /model_prob 0\.45 != our model's win probability 0\.5940 for DEN/);
+  assert.match(r.wrong_game, /SEA.*game.*g1/);
+  assert.match(r.off_slate, /BUF.*not on the slate/);
+  assert.match(r.unknown_market, /unsupported market 'team_total'/);
   assert.equal(r.fixed, null, `the fixed shape must pass, got: ${r.fixed}`);
+});
+
+test('moneyline model probability stays fixed when independent market odds move', () => {
+  const r = runPy(VALIDATOR_PY);
+  assert.equal(r.coincidence.market, 'moneyline');
+  assert.equal(r.coincidence.selection, 'SEA ML');
+  assert.equal(r.coincidence.price_source, 'fair_market');
+  assert.equal(r.coincidence.model_prob, 0.887);
+  assert.equal(r.coincidence.implied_prob, 0.887);
+  assert.equal(r.coincidence_verdict, null);
+  assert.deepEqual(r.changed_market, { ...r.coincidence, implied_prob: 0.35 });
+  assert.equal(r.changed_market_verdict, null);
 });
 
 /* -------------------------------------------------------------------------

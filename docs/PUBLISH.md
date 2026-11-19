@@ -26,12 +26,17 @@ with exit 1.
    commit.`, exit 0. Otherwise **one** commit, with the workflow's own message.
 2. Up to **5 attempts**:
    1. `git fetch origin main`.
-   2. Fetched head is an ancestor of `HEAD` → `git push origin HEAD:main`. Pushed →
-      exit 0.
+   2. Fetched head is an ancestor of `HEAD` → validate the final candidate, then
+      `git push origin HEAD:main`. Pushed → exit 0.
    3. Otherwise `main` moved: **re-create this run's data commit on the new head**
       with `git rebase`. Every conflicted path is resolved by the rules below, with
       no interactive step and no prompt.
-   4. The merged tree must pass the contract gate (`python3 scripts/validate_data.py`)
+      Before replay, refuse if scripts, app code, configuration, input fixtures,
+      contracts, workflow code or dependencies changed from the generation's
+      starting commit. Re-run the pipeline on that new source. Data-only races
+      and documentation updates can still be reconciled.
+   4. The merged tree must pass the contract and grading-parity gate
+      (`python3 scripts/validate_data.py && node scripts/validate_grading.mjs --prior-ref <fetched-full-sha>`)
       **while the rebase can still be abandoned**. It fails → `git rebase --abort`,
       one `::error::` line, exit 1. A document that fails validation is never
       published, however much work produced it. A rebase that produced no conflict
@@ -46,7 +51,8 @@ with exit 1.
       Why: on 2026-10-04 gameday #153 built `leg_pool.json` from an `atd_week.json`
       that daily replaced first; each was valid alone, the pair failed the ATD join,
       and the whole gameday generation (its lock receipts included) was discarded.
-   5. Push. Rejected because someone landed between the fetch and the push → log the
+   5. Validate the exact final candidate again, including clean pushes and
+      fallbacks, then push. Rejected because someone landed between the fetch and the push → log the
       reason, sleep 5 s, next attempt.
 3. Out of attempts → one `::error::` line and exit 1. The generation is still
    committed in the runner's checkout and `main` is intact; nothing was lost, it was
@@ -55,6 +61,23 @@ with exit 1.
 It never rewrites the remote — no forced push, with or without a lease — and never
 resets another writer's commit. The only history it rewrites is the local commit it
 created itself.
+
+The grading check joins scored MY and ATD legs to their original receipts and
+regrades them from the candidate's browser facts. It also enumerates the saved
+offer inventory: every gradeable card must appear once, including a losing card
+with another leg still pending. Unlocked MY offers, pending cards and configured
+exclusions remain explicit. The fetched full commit supplies prior receipt
+inventory, so deleting the offers and their grades together cannot shrink the
+denominator silently. Previously settled terms becoming unresolved are reported;
+valid identity or source corrections must not be forced back to an incorrect
+settlement. The gate checks structure and consistency, not provider authenticity.
+
+Daily and gameday retain one checksummed capture containing CSV sources, raw
+ESPN scoreboards, frozen schedule identity and prior verified FINAL evidence.
+The same manifest feeds all grading consumers. Prior FINAL evidence is retained
+only under the documented identity and contradiction rules; a fresh contradiction
+of a previously verified FINAL stops the generation for investigation. The published review identifies the
+capture used. No validator changes predictions or fits a model from outcomes.
 
 ## Which side wins a conflicted path
 

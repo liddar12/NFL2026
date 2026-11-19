@@ -42,6 +42,7 @@ import io
 import json
 import os
 import re
+import stat
 import sys
 import unicodedata
 
@@ -52,6 +53,9 @@ if _ROOT not in sys.path:
 
 from scripts import meta_record  # noqa: E402
 from scripts.build_estimate_ledger import ledger_path  # noqa: E402
+from scripts.capture_grading_inputs import (  # noqa: E402
+    MANIFEST as GRADING_MANIFEST, MAX_MANIFEST_BYTES, CaptureError, SourceUnknown, read_final_scores, read_rows,
+)
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "estimate_scores.json")
@@ -111,6 +115,14 @@ def ppr_points(row):
            + _num(row, "receiving_2pt_conversions")) * 2.0, 2)
 
 
+def _week(row):
+    try:
+        number = float(row.get("week") or 0)
+        return int(number) if number.is_integer() and 1 <= number <= 18 else None
+    except (TypeError, ValueError):
+        return None
+
+
 def index_actuals(csv_rows):
     """{(norm_name, position): {week: pts}}, plus {norm_name: set(positions)} for
     the name-only fallback, plus the set of weeks that carry any rows."""
@@ -118,11 +130,8 @@ def index_actuals(csv_rows):
     for r in csv_rows:
         if (r.get("season_type") or "REG") != "REG":
             continue
-        try:
-            wk = int(float(r.get("week") or 0))
-        except ValueError:
-            continue
-        if wk < 1 or wk > 18:
+        wk = _week(r)
+        if wk is None:
             continue
         pos = (r.get("position") or "").upper()
         pos = _POS_ALIAS.get(pos, pos)
@@ -389,13 +398,74 @@ class FeedUnavailable(RuntimeError):
 _RETRY_DELAYS = (10, 30)
 
 
+def grading_capture_dir(cache_dir):
+    """Select the required generation, or recognize a published capture in a cache."""
+    required = os.environ.get("NFL_GRADING_CAPTURE_DIR")
+    if required is not None:
+        if not required.strip():
+            raise CaptureError("NFL_GRADING_CAPTURE_DIR is empty")
+        if cache_dir and os.path.abspath(cache_dir) != os.path.abspath(required):
+            raise CaptureError("cache directory conflicts with NFL_GRADING_CAPTURE_DIR")
+        return required
+    if not cache_dir:
+        return None
+
+    # The manually retained legacy cache used a list of source receipts in its
+    # own manifest. A present marker in any other format requires verification.
+    marker = os.path.join(cache_dir, GRADING_MANIFEST)
+    try:
+        fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return cache_dir
+    try:
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_MANIFEST_BYTES:
+                return cache_dir
+            value = json.loads(stream.read(MAX_MANIFEST_BYTES + 1))
+    except (ValueError, OSError, RecursionError):
+        return cache_dir
+    if (isinstance(value, dict) and set(value) == {"version", "sources"}
+            and type(value["version"]) is int and value["version"] == 1
+            and isinstance(value["sources"], list) and value["sources"]
+            and all(isinstance(row, dict)
+                    and {"name", "url", "sha256", "bytes", "rows", "fetched_utc"} <= row.keys()
+                    for row in value["sources"])):
+        return None
+    return cache_dir
+
+
+def captured_final_scores(season=None, cache_dir=None, finals_path=None, stats_path=None):
+    """Select the same frozen scoreboard as the CSVs when a generation is required."""
+    capture_dir = grading_capture_dir(cache_dir)
+    if capture_dir is None:
+        return None
+    capture = read_final_scores(capture_dir, season, allow_legacy="NFL_GRADING_CAPTURE_DIR" not in os.environ)
+    if capture is not None and finals_path is not None:
+        raise CaptureError("--finals cannot override a selected grading capture")
+    if capture is not None and stats_path is not None:
+        raise CaptureError("a custom stats CSV cannot override a selected grading capture")
+    return capture
+
+
 def fetch_csv(season, cache_dir=None):
     """Rows for the season, or (None, reason) when the release has none yet (HTTP 404).
 
     Raises FeedUnavailable when the release cannot be read for any other reason
-    (5xx, timeout, connection fault) after the retries in _RETRY_DELAYS."""
-    url = RELEASE_URL.format(season=int(season))
-    cached = os.path.join(cache_dir, "stats_player_week_%d.csv" % season) if cache_dir else None
+    (5xx, timeout, connection fault) after the retries in _RETRY_DELAYS. An
+    explicitly selected capture must verify before any rows or 404 are returned."""
+    season = int(season)
+    name = "stats_player_week_%d.csv" % season
+    capture_dir = grading_capture_dir(cache_dir)
+    if capture_dir is not None:
+        try:
+            return read_rows(capture_dir, name), None
+        except SourceUnknown as exc:
+            return None, str(exc)
+    url = RELEASE_URL.format(season=season)
+    cached = os.path.join(cache_dir, name) if cache_dir else None
     if cached and os.path.exists(cached):
         with open(cached, encoding="utf-8", newline="") as fh:
             return list(csv.DictReader(fh)), None
@@ -440,8 +510,9 @@ def write(doc, path=OUT_PATH):
 
 def run(season=None, cache_dir=None, out_path=OUT_PATH, meta_path=meta_record.META_PATH,
         now=None, offline=False):
+    captured = captured_final_scores(season, cache_dir)
     if season is None:
-        season = int(_load(PROJECTIONS_PATH)["season"])
+        season = captured["season"] if captured is not None else int(_load(PROJECTIONS_PATH)["season"])
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lpath = ledger_path(season)
     ledger_rel = os.path.relpath(lpath, _ROOT)
@@ -457,9 +528,16 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, meta_path=meta_record.ME
                 why = "offline run: stats not fetched"
             else:
                 rows, why = fetch_csv(season, cache_dir)
+                if rows is not None and captured is not None:
+                    complete = set(captured["complete_weeks"])
+                    rows = [row for row in rows if _week(row) in complete]
+                    if not rows:
+                        rows, why = None, "no stats rows in weeks with a complete set of captured FINAL scores"
         doc = build_document(ledger, rows, season, ledger_rel, now)
         if rows is None and why and doc["skipped"] == "stats not fetched":
             doc["skipped"] = why
+    if captured is not None:
+        doc["source"] += "; " + captured["source"]
     write(doc, out_path)
     weights = (_load(meta_path).get("weights") if os.path.exists(meta_path) else {}) or {}
     meta_record.set_record("learning_record",
@@ -500,6 +578,7 @@ def _summary(doc):
 def dry_run(csv_path, ledger_file=None, season=None, now=None):
     """R53: the production path against a CSV on disk; prints the document to
     stdout, writes NOTHING. Returns the document."""
+    captured_final_scores(season, stats_path=csv_path)
     if season is None:
         season = int(_load(PROJECTIONS_PATH)["season"])
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

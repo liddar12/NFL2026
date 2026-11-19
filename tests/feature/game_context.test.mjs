@@ -38,6 +38,7 @@ const CORPUS = join(FIXTURES, 'backtest_corpus');
 const BUILDER = join(REPO_ROOT, 'scripts', 'build_game_context.py');
 const SAMPLE_CSV = join(FIXTURES, 'nflverse_sample', 'games_context_sample.csv');
 const SHIPPED = join(DATA, 'game_context.json');
+const CORPUS_LAST_SEASON = 2025;
 
 const load = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
@@ -175,6 +176,21 @@ test('honesty: missing source values stay null, never a placeholder string', () 
   assert.deepEqual(g['2099|1|LAR|LV'].home_qb, { id: '00-QBB', name: 'B.Home' });
 });
 
+test('builder: partial referee coverage preserves known labels and counts missing ones', () => {
+  const referees = Object.fromEntries(Object.entries(fixtureDoc.games)
+    .map(([key, rec]) => [key, rec.referee]));
+  assert.deepEqual(referees, {
+    '2099|1|LAC|KC': 'Ref Two',
+    '2099|1|LAR|LV': 'Ref One',
+    '2099|9|LV|LAR': null,
+    '2099|20|LAR|LV': 'Ref One',
+  });
+  assert.ok(fixtureDoc.label_only_fields.includes('referee'));
+  assert.equal(fixtureDoc.diagnostics.by_season['2099'].games, 4);
+  assert.equal(fixtureDoc.diagnostics.null_field_counts.referee, 1);
+  assert.equal(fixtureDoc.diagnostics.distinct_referees, 2);
+});
+
 test('renames + derived meeting_no behave as documented', () => {
   const g = fixtureDoc.games;
   // STL -> LAR, OAK -> LV, SD -> LAC applied before the key is formed.
@@ -300,7 +316,7 @@ test('shipped: completed games only, and the record shape is uniform',
     assert.equal(keys.length, shipped.diagnostics.games,
       'the artifact must count exactly what it ships');
     assert.equal(shipped.diagnostics.corpus_reconcile.joined, CORPUS_GAMES);
-    const inSeason = keys.filter((k) => Number(k.split('|')[0]) > 2025);
+    const inSeason = keys.filter((k) => Number(k.split('|')[0]) > CORPUS_LAST_SEASON);
     assert.equal(keys.length - CORPUS_GAMES, inSeason.length,
       'growth beyond the corpus is the current season only — nothing else may appear');
     assert.ok(shipped.diagnostics.unplayed_rows_skipped > 0,
@@ -320,11 +336,48 @@ test('shipped: the LABEL-ONLY declaration is present, exact, and populated',
     assert.deepEqual(shipped.label_only_fields, LABEL_ONLY);
     assert.match(shipped.label_only_note, /never/i);
     assert.match(shipped.label_only_note, /LABEL ONLY/i);
-    // And they really are populated (a declaration over empty fields is noise).
+    const records = Object.values(shipped.games);
     const nulls = shipped.diagnostics.null_field_counts;
     for (const f of LABEL_ONLY) {
-      assert.ok(nulls[f] < Object.keys(shipped.games).length * 0.01,
+      assert.equal(nulls[f], records.filter((rec) => rec[f] === null).length,
+        `${f} diagnostic must match the completed game records`);
+    }
+    for (const f of ['away_qb', 'home_qb']) {
+      assert.ok(nulls[f] < records.length * 0.01,
         `${f} should be near-complete over completed games, got ${nulls[f]} nulls`);
+    }
+  });
+
+test('shipped: referee labels are near-complete within each historical corpus season',
+  { skip: skipIfUnbuilt }, () => {
+    for (const season of shipped.seasons.filter((season) => season <= CORPUS_LAST_SEASON)) {
+      const records = Object.entries(shipped.games)
+        .filter(([key]) => key.startsWith(`${season}|`))
+        .map(([, rec]) => rec);
+      assert.equal(records.length, shipped.diagnostics.by_season[season].games);
+      const missing = records.filter((rec) => rec.referee === null).length;
+      assert.ok(missing < records.length * 0.01,
+        `${season} referee labels should be near-complete, got ${missing} nulls`);
+    }
+  });
+
+test('shipped: report provider referee coverage for completed games beyond the corpus',
+  { skip: skipIfUnbuilt }, (t) => {
+    for (const season of shipped.seasons.filter((season) => season > CORPUS_LAST_SEASON)) {
+      const records = Object.entries(shipped.games)
+        .filter(([key]) => key.startsWith(`${season}|`))
+        .map(([, rec]) => rec);
+      assert.equal(records.length, shipped.diagnostics.by_season[season].games);
+      let missing = 0;
+      for (const { referee } of records) {
+        if (referee === null) {
+          missing += 1;
+        } else {
+          assert.equal(typeof referee, 'string');
+          assert.ok(referee.trim(), `${season} missing referee labels must be null`);
+        }
+      }
+      t.diagnostic(`${season} nflverse referee coverage ${records.length - missing}/${records.length} completed games, ${missing} unknown`);
     }
   });
 

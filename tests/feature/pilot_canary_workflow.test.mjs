@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 const source = readFileSync(new URL('../../.github/workflows/selflearning-canary.yml', import.meta.url), 'utf8');
-const PIN = 'aacb19c73122f257449e977df40f2a2733991b2f';
+const PIN = '889e147e84b01c28898f268eb89f91c978ef490f';
 const NAMES = [
   'Checkout exact NFL test tree', 'Checkout pinned public engine', 'Setup Python', 'Setup Node',
   'Refuse missing or drifting engine before tests', 'Run all focused integration tests without skips',
@@ -33,7 +33,7 @@ const TEST_COMMAND = [
   "import assert from 'node:assert/strict';",
   "import {readFileSync} from 'node:fs';",
   "const tap = readFileSync(process.argv[2], 'utf8');",
-  "for (const [name, expected] of [['tests', 53], ['pass', 53], ['fail', 0], ['cancelled', 0], ['skipped', 0]]) {",
+  "for (const [name, expected] of [['tests', 55], ['pass', 55], ['fail', 0], ['cancelled', 0], ['skipped', 0]]) {",
   "  const values = [...tap.matchAll(new RegExp('^# ' + name + ' ([0-9]+)$', 'gm'))];",
   "  assert.equal(values.length, 1, 'missing or ambiguous TAP total: ' + name);",
   "  assert.equal(Number(values[0][1]), expected, 'unaccepted TAP total: ' + name);",
@@ -117,7 +117,7 @@ test('TAP acceptance requires every expected test, no skip, no failure, and unam
   const directory = mkdtempSync(join(tmpdir(), 'pilot-canary-tap-'));
   try {
     const path = join(directory, 'focused.tap');
-    const good = '# tests 53\n# pass 53\n# fail 0\n# cancelled 0\n# skipped 0\n';
+    const good = '# tests 55\n# pass 55\n# fail 0\n# cancelled 0\n# skipped 0\n';
     function accepted(text) {
       writeFileSync(path, text);
       return spawnSync(process.execPath, ['--input-type=module', '-', path], {
@@ -127,8 +127,8 @@ test('TAP acceptance requires every expected test, no skip, no failure, and unam
     assert.equal(accepted(good), true);
     for (const changed of [
       good.replace('# skipped 0', '# skipped 11'), good.replace('# fail 0', '# fail 1'),
-      good.replace('# pass 53', '# pass 52'), good.replace('# tests 53', '# tests 52'),
-      good.replace('# cancelled 0', '# cancelled 1'), good + '# pass 53\n', '',
+      good.replace('# pass 55', '# pass 54'), good.replace('# tests 55', '# tests 54'),
+      good.replace('# cancelled 0', '# cancelled 1'), good + '# pass 55\n', '',
     ]) assert.equal(accepted(changed), false);
   } finally {
     rmSync(directory, {recursive: true, force: true});

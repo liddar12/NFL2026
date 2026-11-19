@@ -22,7 +22,12 @@ import { dirname, resolve } from 'node:path';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const py = (body) => JSON.parse(execFileSync('python3', ['-'], {
   cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
-  input: `import json, os, sys, types, tempfile, contextlib, io\nsys.path.insert(0, ".")\n${body}\n`,
+  input: `
+import json, os, sys, tempfile, types
+sys.path.insert(0, ".")
+os.environ.pop("NFL_GRADING_CAPTURE_DIR", None)
+${body}
+`,
 }).trim().split('\n').pop());
 
 const FAKE = `
@@ -72,26 +77,39 @@ print(json.dumps(out))`);
 
 test('a resolver run during an outage exits non-zero and leaves its document untouched', () => {
   const r = py(`${FAKE}
-import subprocess, shutil
+from pathlib import Path
+import subprocess
+
 out = {}
-for script, path in (("resolve_estimates", "data/estimate_scores.json"),
-                     ("resolve_parlay_legs", "data/parlay_leg_scores.json"),
-                     ("resolve_my_cards", "data/my_card_scores.json")):
-    d = tempfile.mkdtemp()
-    shim = os.path.join(d, "requests.py")
-    open(shim, "w").write(
+with tempfile.TemporaryDirectory() as temp:
+    directory = Path(temp)
+    (directory / "requests.py").write_text(
         "class R:\\n    status_code = 504\\n    content = b''\\n"
         "def get(url, timeout=None):\\n    return R()\\n")
-    before = open(path, "rb").read()
-    env = dict(os.environ, PYTHONPATH=d + os.pathsep + os.getcwd())
-    code = ("import sys; sys.argv = ['%s']; import scripts.resolve_estimates as e; "
-            "e._RETRY_DELAYS = (); import scripts.%s as m; sys.exit(m.main())" % (script, script))
-    p = subprocess.run([sys.executable, "-c", code], env=env,
-                       capture_output=True, text=True, timeout=600)
-    after = open(path, "rb").read()
-    if after != before:
-        open(path, "wb").write(before)   # never leave the checkout dirty
-    out[script] = [p.returncode, after == before, "FeedUnavailable" in p.stderr]
+    env = dict(os.environ, PYTHONPATH=temp + os.pathsep + os.getcwd())
+    for script, filename in (("resolve_estimates", "estimate_scores.json"),
+                             ("resolve_parlay_legs", "parlay_leg_scores.json"),
+                             ("resolve_my_cards", "my_card_scores.json")):
+        output = directory / filename
+        # Use a stable prior document even when a generator is writing the checkout.
+        with output.open("wb") as stream:
+            subprocess.run(["git", "show", "HEAD:data/" + filename], stdout=stream, check=True)
+        before = output.read_bytes()
+        code = ("import sys; from functools import partial; "
+                "import scripts.resolve_estimates as e; e._RETRY_DELAYS = (); "
+                "import scripts.%s as m; " % script)
+        if script == "resolve_estimates":
+            # This CLI has no --out. Redirect both destinations in its run entry point.
+            code += ("m.run = partial(m.run, out_path=sys.argv[1], meta_path=sys.argv[2]); "
+                     "sys.exit(m.main([]))")
+            args = [str(output), str(directory / "meta.json")]
+        else:
+            code += "sys.exit(m.main(sys.argv[1:]))"
+            args = ["--out", str(output)]
+        p = subprocess.run([sys.executable, "-c", code, *args], env=env,
+                           capture_output=True, text=True, timeout=600)
+        same = output.is_file() and output.read_bytes() == before
+        out[script] = [p.returncode, same, "FeedUnavailable" in p.stderr]
 print(json.dumps(out))`);
   for (const [script, [rc, same, loud]] of Object.entries(r)) {
     assert.notEqual(rc, 0, `${script} must fail the stage on an outage`);
@@ -102,9 +120,23 @@ print(json.dumps(out))`);
 
 test('build_review (a required stage) catches FeedUnavailable instead of failing the publish', () => {
   const r = py(`
-src = open("scripts/build_review.py").read()
-i = src.index("rows, why = fetch_csv(season, None)")
-print(json.dumps({"guarded": "except FeedUnavailable as exc:" in src[i:i + 400]
-                  and "try:" in src[i - 80:i]}))`);
-  assert.equal(r.guarded, true);
+from pathlib import Path
+from unittest.mock import patch
+from scripts import build_review as review, resolve_estimates as estimates
+
+with tempfile.TemporaryDirectory() as root:
+    data = Path(root, "data")
+    data.mkdir()
+    (data / "schedule_full.json").write_text(json.dumps({"season": 2026, "games": []}))
+    cache = str(Path(root, "cache"))
+    with patch.object(estimates, "fetch_csv", side_effect=estimates.FeedUnavailable("stats HTTP 504")) as fetch:
+        with patch("scripts.resolve_my_cards._snaps", return_value=None):
+            inputs = review.load_inputs(root=root, cache_dir=cache)
+    fetch.assert_called_once_with(2026, cache)
+    doc = review.build(inputs, "2026-11-08T17:00:00Z")
+    print(json.dumps({"stats": inputs["stats_rows"], "source": inputs["sources"]["stats"],
+                      "notes": doc["notes"]}))`);
+  assert.deepEqual(r.stats, []);
+  assert.equal(r.source, null);
+  assert.ok(r.notes.some(note => note.includes('stats HTTP 504')));
 });

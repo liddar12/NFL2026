@@ -113,11 +113,11 @@ test('invalid or explicitly empty targets reject before config, staging, commit 
   }
 }));
 
-test('daily and gameday scope their ref-name target to the publish step only', () => {
-  for (const name of ['daily', 'gameday']) {
+test('all publishers scope their ref-name target to the publish step only', () => {
+  for (const name of ['daily', 'gameday', 'backtest']) {
     const workflow = readFileSync(new URL(`.github/workflows/${name}.yml`, root), 'utf8');
     assert.equal((workflow.match(/PUBLISH_BRANCH:/g) ?? []).length, 1);
-    assert.match(workflow, /      - name: Commit [^\n]+\n        env:\n          PUBLISH_BRANCH: \$\{\{ github.ref_name \}\}\n        run: 'bash scripts\/publish_data.sh /);
+    assert.match(workflow, /      - name: Commit [^\n]+\n        env:\n          PUBLISH_RECEIPT_PATH: [^\n]+\n          PUBLISH_BRANCH: \$\{\{ github.ref_name \}\}\n        run: 'bash scripts\/publish_data.sh /);
     assert.match(workflow, /workflow_dispatch:/);
     assert.match(workflow, /schedule:/);
   }

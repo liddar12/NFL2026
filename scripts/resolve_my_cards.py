@@ -77,10 +77,13 @@ from scripts.build_my_cards import DIAL_ORDER, OUT_DIR as CARDS_DIR  # noqa: E40
 from scripts.build_parlay_ledger import _SPREAD_RE  # noqa: E402
 from scripts.build_review import (STAKE, parlay_bucket, parlay_money,  # noqa: E402
                                   parlay_result)
+from scripts.capture_grading_inputs import SourceUnknown, read_rows  # noqa: E402
 from scripts.excluded_games import VOID_REASON as EXCLUDED_REASON  # noqa: E402
 from scripts.excluded_games import excluded_ids  # noqa: E402
 from scripts.models.my_cards import LEG_COUNTS  # noqa: E402
-from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
+from scripts.resolve_estimates import (  # noqa: E402
+    RELEASE_URL, fetch_csv, grading_capture_dir, norm_name,
+)
 from scripts.resolve_parlay_legs import (  # noqa: E402
     ATD_MARKET, GAME_MARKETS, PROP_POSITION, SNAPS_URL, brier, find_player, grade_atd,
     index_snaps, index_stats, index_td, load_finals, log_loss, read_csv, split_abbrev,
@@ -185,12 +188,17 @@ def snap_evidence(leg, week, snaps_by_week):
     return "dnp", None
 
 
-def grade_prop(leg, week, by_week, snaps_by_week=None):
+def grade_prop(leg, week, by_week, snaps_by_week=None, context=None):
     """(result, actual, reason) for one prop leg. Never a miss without evidence:
     a stat line, or (R106) a snap sheet showing he played and so gained 0 yards.
     A published snap sheet he is NOT on is a void (did_not_play) — the book's rule
     and grade_atd's — so a parlay settles on its other legs instead of sitting
     pending forever."""
+    if context is not None:
+        from scripts.player_outcomes import grade_fact, player_event_facts
+        fact = player_event_facts(leg, week, by_week.get(int(week)), None,
+                                  (snaps_by_week or {}).get(int(week)), context)
+        return grade_fact(fact, leg.get("market"), leg.get("line"))
     rows = by_week.get(int(week))
     if rows is None:
         return "pending", None, "week_not_published"
@@ -282,13 +290,15 @@ def grade_card(card, week, by_week, finals, atd=None, excluded=None):
         if leg.get("game_id") is not None and str(leg["game_id"]) in excluded:
             result, actual, reason = "void", None, EXCLUDED_REASON
         elif market == ATD_MARKET:
-            result, actual, reason = (grade_atd(leg, week, atd.get("td"), atd.get("snaps"))
+            result, actual, reason = (grade_atd(leg, week, atd.get("td"), atd.get("snaps"),
+                                               atd.get("context"))
                                       if atd else ("pending", None, "no_td_index"))
         elif market in GAME_MARKETS:
             result, actual, reason = grade_game(leg, finals)
         elif market in PROP_POSITION:
             result, actual, reason = grade_prop(leg, week, by_week,
-                                                (atd or {}).get("snaps"))
+                                                (atd or {}).get("snaps"),
+                                                (atd or {}).get("context"))
         else:
             result, actual, reason = "pending", None, "unknown_market"
         resolved = {"selection": leg.get("selection"), "market": market,
@@ -328,7 +338,7 @@ def grade_card(card, week, by_week, finals, atd=None, excluded=None):
         "model": card.get("model"),
         "result": pres,
         "bucket": bucket,
-        "legs": [{k: v for k, v in l.items() if k != "reason"} for l in legs_out],
+        "legs": legs_out,
         "money": money,
     }
 
@@ -517,7 +527,14 @@ def _snaps(season, cache_dir, dry_run_csv, offline):
     or None: without them an ATD leg with no stat line stays pending."""
     if dry_run_csv or offline:
         return None
-    cached = os.path.join(cache_dir, "snap_counts_%d.csv" % season) if cache_dir else None
+    name = "snap_counts_%d.csv" % int(season)
+    capture_dir = grading_capture_dir(cache_dir)
+    if capture_dir is not None:
+        try:
+            return index_snaps(read_rows(capture_dir, name))
+        except SourceUnknown:
+            return None
+    cached = os.path.join(cache_dir, name) if cache_dir else None
     if cached and os.path.exists(cached):
         return index_snaps(read_csv(cached))
     try:
@@ -549,10 +566,9 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
     atd = None
 
     # The weeks whose finals matter: every week holding a locked game leg.
-    game_weeks = sorted({w for w, c in rows if c.get("locked")
-                         and any(l.get("market") in GAME_MARKETS for l in c.get("legs") or [])})
+    game_weeks = sorted({w for w, c in rows if c.get("locked")})
     finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
-                                        offline=offline)
+                                        offline=offline, cache_dir=cache_dir, stats_path=dry_run_csv)
 
     if not rows:
         skipped = ("no recorded cards at %s yet -- scripts/build_my_cards.py writes them "
@@ -576,6 +592,8 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
             if any(l.get("market") == ATD_MARKET or l.get("market") in PROP_POSITION
                    for _, c in rows for l in c.get("legs") or []):
                 atd["snaps"] = _snaps(season, cache_dir, dry_run_csv, offline)
+            from scripts.player_outcomes import load_context
+            atd["context"] = load_context(DATA, season, finals, cache_dir)
 
     weeks, graded = score(rows, by_week, finals, atd, excluded)
     if rows and not graded and not skipped:
