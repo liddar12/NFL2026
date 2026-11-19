@@ -4,6 +4,29 @@ Revision 3. November 18, 2026, 3:10 p.m. CST (America/Chicago). Codex owns this 
 
 ## Current checkpoint
 
+### NFL release-candidate reconciliation
+
+The local candidate reconciles the coverage branch with main at `640df164`.
+The six generated-file conflicts started from main's copies. The grading
+and replay CLIs rebuilt their outputs from the retained v2 capture with network
+access blocked. The line-report CLI used the retained November 18 nflverse
+snapshot and main's injury file. Pittsburgh's offensive line shows four
+identified starters and one unknown because the source lists Brock Hoffman at
+both starting guard slots.
+
+The replay preserved 302 receipt, snapshot, archive and ledger files from main
+byte for byte, including all 37 offer files and 13 pending Week 11 game locks.
+The 150 captured ESPN finals match the prior and rebuilt facts and review.
+The prior-publication validator passed with 30,208 MY and 22,663 ATD gradeable
+cards, 274,625 leg comparisons and zero mismatches. Ten previously settled
+Week 10 terms now return `player_game_mismatch`; nine MY cards and four ATD
+cards that previously showed void are pending. Their offers remain intact.
+Other retained cards also reflect event-bound stat and participation corrections.
+The retained audit logs are under `code/evidence/nfl-release-reconcile-*`.
+
+The candidate uses a bounded default of four feature workers on this machine.
+Full-gate acceptance and production verification remain open for this merge.
+
 The new NFL source is `479ac73bcc14dbe5db0cc52f8de1f11cd903f68f` on
 `build/grading-coverage-20261118`. This checkpoint adds offer-derived grading
 coverage, prior-publication receipt retention and Data CI incident deduplication.
