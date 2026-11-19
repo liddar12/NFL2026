@@ -270,3 +270,29 @@ Local source `9b58aeef` passed 14 portfolio feature tests and eight Chromium
 tests. The browser checks cover published card filtering, the displayed
 selection count on built cards, and clearing the warning when a filter
 produces no built cards.
+
+## Historical Week portfolio comparison
+
+Run `python3 scripts/evaluate_week_portfolio.py --replay 1 11`. For each
+week, replay takes the latest complete retained game forecast both generated
+and captured before the slate's first kickoff. Both fixed selection rules
+receive those same probabilities and only owner exclusions known at the
+generation time. The control uses the current highest-probability builder
+with no market prices. The report records the snapshot digest, card membership,
+verified reviews and score coverage. A tie or missing result leaves the
+affected cards unresolved.
+
+Weeks 1–10 produced 43/180 full hits for the control and 33/180 for the cap.
+The cap limited the most cards one selection could defeat to 9 of 18 in
+each week. The control exposed 17 or 18 cards to one loss. Week 5 went from
+1/18 to 2/18 full hits, and Week 6 went from 2/18 to 1/18. The cap produced
+one week with zero full hits, and the control produced none. Week 11 was
+not yet graded in the retained review.
+
+This is a retrospective comparison of reconstructed Week moneyline cards.
+The published record, same-game parlays, player props, payouts and engine
+corrections are outside this comparison. The observed tradeoff supports
+leaving the cap in shadow when the priority is maximizing full hits. The
+15 focused feature tests passed, including the cutoff, tie and missing
+snapshot cases. Output is in
+`code/evidence/nfl-week-portfolio-historical-replay-20261119.json`.

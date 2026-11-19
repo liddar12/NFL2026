@@ -65,6 +65,45 @@ test('Python and browser agree on the committed offered Week set without changin
   assert.equal(result.state, 'shadow_only_not_served');
 });
 
+test('historical replay freezes both policies before kickoff and leaves a tie unresolved', () => {
+  const result = py(`import json, tempfile
+from pathlib import Path
+from scripts.evaluate_week_portfolio import replay_week_portfolios
+with tempfile.TemporaryDirectory() as temp:
+    repo = Path(temp)
+    def write(name, value):
+        path = repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value))
+    games=[dict(game_id=str(i),home=f'H{i}',away=f'A{i}',week=5,kickoff_utc='2026-10-08T23:30:00Z',
+                probs=dict(home=.9-i*.02,away=.1+i*.02)) for i in range(14)]
+    write('data/schedule_full.json', dict(season=2026,games=games))
+    frozen=dict(season=2026,week=5,updated_utc='2026-10-08T23:22:00Z',games=games)
+    write('data/snapshots/game_predictions.20261008T232400Z.json', frozen)
+    write('data/snapshots/game_predictions.20261008T233000Z.json',
+          dict(frozen,updated_utc='2026-10-08T23:25:00Z'))
+    write('config/excluded_games.json',dict(games=[
+        dict(game_id='1',season=2026,week=5,added_utc='2026-10-08T23:23:00Z')]))
+    finals=[dict(g,status='STATUS_FINAL',final=dict(home_score=20,away_score=10,winner=g['home']))
+            for g in games]
+    finals[0]['final']=dict(home_score=20,away_score=20,winner=None)
+    write('data/review.json',dict(season=2026,generated_utc='2026-10-10T00:00:00Z',
+                                 weeks={'5':dict(games=finals)}))
+    print(json.dumps(replay_week_portfolios(repo, 5, 6)))`);
+  const [compared, unavailable] = result.weeks;
+  assert.equal(compared.snapshot, 'game_predictions.20261008T232400Z.json');
+  assert.deepEqual(compared.excluded_as_of, []);
+  assert.equal(compared.finals['0'], undefined);
+  assert.ok(compared.control_grades.unresolved > 0);
+  assert.equal(compared.control_grades.miss, 0);
+  assert.equal(compared.candidate_grades.miss, 0);
+  assert.equal(compared.candidate_risk.max_cards_lost_from_one_selection, 9);
+  assert.equal(compared.candidate_risk.cards, compared.control_risk.cards);
+  assert.deepEqual(result.summary.paired_graded_weeks, []);
+  assert.equal(unavailable.status, 'complete_pre_kickoff_snapshot_missing');
+  assert.equal(result.adoption_approved, false);
+});
+
 test('constrained selector enforces cap, quotas, uniqueness and deterministic input ordering', () => {
   const result = py(`import json
 from scripts.models.portfolio import select_constrained
