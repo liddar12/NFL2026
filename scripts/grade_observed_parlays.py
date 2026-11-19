@@ -4,7 +4,7 @@ import argparse
 from collections import Counter, defaultdict
 from hashlib import sha256
 import json
-from math import log
+from math import isfinite, log
 from pathlib import Path
 import re
 import sys
@@ -14,11 +14,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts import capture_outcome_evidence as capture
+from scripts.build_parlay_ledger import _SPREAD_RE
 from scripts.build_review import direct_leg_grader, parlay_result
 from scripts.learning_receipts import fingerprint, instant
 from scripts.models.parlay_builder import parlay_bet_key
 from scripts.observe_parlay_offers import NAMES, classify_offers
 from scripts.player_outcomes import context, identity_maps
+from scripts.resolve_my_cards import grade_game
 from scripts.resolve_parlay_legs import index_snaps
 
 
@@ -42,6 +44,42 @@ def read_observation(path):
             or any(slate[key] != evidence[key] for key in ("season", "week"))):
         raise ValueError("public_parlay_observation_membership_changed")
     return evidence, slate, schedule
+
+
+def _spread_terms(term, game):
+    """Bind the advertised handicap and team to this verified fixture."""
+    match = _SPREAD_RE.fullmatch(term["selection"])
+    side, declared_line = term.get("side"), term.get("line")
+    shown_line = None
+    if match:
+        team = match["team"]
+        if team not in (game["home"], game["away"]):
+            return None, "spread_team_conflict"
+        shown_side = "home" if team == game["home"] else "away"
+        if side is not None and side != shown_side:
+            return None, "spread_side_conflict"
+        side, shown_line = shown_side, float(match["hcap"])
+    if side not in ("home", "away"):
+        return None, "no_side"
+    team = game[side]
+    if term.get("team") not in (None, team):
+        return None, "spread_team_conflict"
+    if declared_line is None:
+        line = shown_line
+    else:
+        if type(declared_line) not in (int, float):
+            return None, "spread_line_invalid"
+        try:
+            line = float(declared_line)
+        except OverflowError:
+            return None, "spread_line_invalid"
+        if shown_line is not None and line != shown_line:
+            return None, "spread_line_conflict"
+    if line is None:
+        return None, "no_line"
+    if not isfinite(line):
+        return None, "spread_line_invalid"
+    return {**term, "line": line or 0.0, "side": side, "team": team}, None
 
 
 def grade_cards(evidence, slate, schedule, observed_games, stats, snaps, roster):
@@ -78,7 +116,11 @@ def grade_cards(evidence, slate, schedule, observed_games, stats, snaps, roster)
                 bound = {**term, "game_id": gid, "season": evidence["season"]}
                 if term["market"] == "moneyline":
                     bound["side"] = "home" if term["selection"] == game["home"] + " ML" else "away"
-                outcome, actual, reason = grade(bound, gid, week) or ("pending", None, "unsupported_market")
+                if term["market"] == "spread":
+                    spread, reason = _spread_terms(bound, game)
+                    outcome, actual, reason = grade_game(spread, finals) if spread else ("pending", None, reason)
+                else:
+                    outcome, actual, reason = grade(bound, gid, week) or ("pending", None, "unsupported_market")
             legs.append({"game_id": gid, "market": term["market"], "selection": term["selection"],
                          "outcome": outcome, "actual": actual, "reason": reason})
         results = [leg["outcome"] for leg in legs]
@@ -205,6 +247,11 @@ def _bound_contract_id(card, reference, games, season, week):
             leg.pop("side", None)
         elif leg["market"] == "moneyline":
             leg["side"] = "home" if leg["selection"] == game["home"] + " ML" else "away"
+        elif leg["market"] == "spread":
+            spread, _ = _spread_terms(leg, game)
+            if spread:
+                # The normalized signed handicap carries the contract terms.
+                leg = {**spread, "selection": spread["team"]}
         legs.append(leg)
     bound = {**card, "legs": legs}
     return fingerprint([season, week, parlay_bet_key(bound)])

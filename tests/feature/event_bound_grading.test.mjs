@@ -302,6 +302,45 @@ emit(dict(
   assert.deepEqual(r.bound_absence, ['void', 'did_not_play']);
 });
 
+test('public spread replay respects the exact handicap and isolates a push', () => {
+  const r = py(`
+from scripts.grade_observed_parlays import grade_cards, summarize_published_calibration, _bound_contract_id
+from scripts.observe_parlay_offers import classify_offers
+
+kickoff='2026-11-09T18:00:00Z'
+game=dict(games[0],kickoff_utc=kickoff,status='STATUS_SCHEDULED')
+schedule=dict(season=2026,games=[game])
+base=dict(market='spread',selection='NO -14')
+cases=[
+    base,
+    dict(base,selection='NO -13.5',line=-13.5,side='home'),
+    dict(base,selection='NO -14.5',line=-14.5,side='home'),
+    dict(base,line=-13.5,side='home'),
+    dict(base,side='away'),
+    dict(base,line=False),
+    dict(base,selection='home handicap',line=-14,side='home'),
+]
+cards=[dict(parlay_id=str(i),scope='game',game_id=leg['game_id'],joint_model_prob=.5,legs=[term])
+       for i,term in enumerate(cases)]
+slate=dict(season=2026,week=week,updated_utc='2026-11-09T17:00:00Z',parlays=cards)
+refs=classify_offers(slate,schedule,'2026-11-09T17:00:00Z')
+evidence=dict(season=2026,week=week,cards=refs)
+observed=[dict(game,final=True,observed_utc='2026-11-09T23:00:00Z',**finals[leg['game_id']])]
+grades=grade_cards(evidence,slate,schedule,observed,[],[],[])
+ids=[_bound_contract_id(c,r,{game['game_id']:game},2026,week) for c,r in zip(cards,refs)]
+emit(dict(grades=grades['cards'],calibration=summarize_published_calibration(evidence,slate,grades['cards']),
+          ids=ids))
+`);
+  assert.deepEqual(r.grades.map(card => [card.result, card.legs[0].reason]), [
+    ['void', 'push'], ['full_hit', null], ['loss', null], ['pending', 'spread_line_conflict'],
+    ['pending', 'spread_side_conflict'], ['pending', 'spread_line_invalid'], ['void', 'push'],
+  ]);
+  assert.equal(r.ids[0], r.ids[6]);
+  assert.notEqual(r.ids[0], r.ids[1]);
+  assert.equal(r.calibration.total.scored_count, 2);
+  assert.equal(r.calibration.total.exclusions.void_leg, 2);
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]
