@@ -186,8 +186,9 @@ access still require acceptance during rollout.
 
 ## Daily outcome capture and registered recovery
 
-The opt-in outcome workflow runs at 12:42 UTC daily. On main, with
-`NFL_SELFLEARN_OUTCOME_MODE=record`, it selects regular-season weeks with a
+The opt-in outcome workflow follows a successful daily refresh from this
+repository's main branch. An operator can also dispatch it manually on main.
+With `NFL_SELFLEARN_OUTCOME_MODE=record`, it selects regular-season weeks with a
 published FINAL in the previous fourteen days. That selection only scopes
 retrieval. Fresh raw scoreboard, statistics, snap and roster observations
 supply the actual grading evidence. Preparation uses no secret. The delivery
@@ -228,7 +229,8 @@ receipt. Data CI receipt retention is again the final publisher step.
 No generated data or tests for the existing contracts had to change.
 
 The affected checks and exporter acceptance passed 42 tests with the pinned
-engine. The preceding failed gate is retained in
+engine. The full local gate then passed on `47f86384` with 2,371 feature tests
+and 364 browser tests passed, plus four browser skips. The preceding failed gate is retained in
 `code/evidence/nfl-outcome-workflow-full-gate-20261119.log`.
 
 ## MY Parlays shared exposure
@@ -254,3 +256,17 @@ change from 7.34 to 5.26 while modeled zero-winner risk goes from 11.95% to
 9.23%. These are different objectives on a frozen forecast, and the
 alternative needs prospective evaluation before any selection-policy decision.
 See `code/evidence/nfl-week-portfolio-counterfactual-20261119.json`.
+
+## Game Parlays shared selection
+
+Published and browser-built Game cards show a warning when a verified
+selection occurs in two or more displayed cards. The warning names the most
+repeated selection and counts the affected cards. Published card filters and
+the browser builder each use their own displayed set. Older published props
+identify their team using the scheduled home or away side, with explicit team
+conflicts refused. The warning estimates no joint probability.
+
+Local source `9b58aeef` passed 14 portfolio feature tests and eight Chromium
+tests. The browser checks cover published card filtering, the displayed
+selection count on built cards, and clearing the warning when a filter
+produces no built cards.
