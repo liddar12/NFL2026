@@ -801,6 +801,8 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
             "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
             "result": pres, "bucket": bucket, "legs": legs_out}
+    if "joint_model_prob" in parlay:
+        out["joint_model_prob"] = parlay["joint_model_prob"]
     if "offer_lineage" in parlay:
         out["offer_lineage"] = parlay["offer_lineage"]
     return out

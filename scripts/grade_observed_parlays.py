@@ -4,9 +4,11 @@ import argparse
 from collections import Counter, defaultdict
 from hashlib import sha256
 import json
+from math import log
 from pathlib import Path
 import re
 import sys
+from statistics import fmean
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -87,7 +89,69 @@ def grade_cards(evidence, slate, schedule, observed_games, stats, snaps, roster)
     return {"by_scope": dict(counts), "cards": rows, "rejected_fixture_ids": sorted(identities_refused)}
 
 
-def evaluate(observation_path, outcome_path):
+def _score_published_cards(rows):
+    scored = [row for row in rows if row["exclusion"] is None]
+    expected = [row["joint_model_prob"] for row in scored]
+    actual = [row["full_hit"] for row in scored]
+    games = Counter(gid for row in scored for gid in set(row["game_ids"]))
+
+    def loss(probability, hit):
+        correct_probability = probability if hit else 1 - probability
+        return -log(max(1e-15, correct_probability))
+
+    return {
+        "eligible_offers": len(rows),
+        "recorded_joint_probability_count": sum(row["joint_model_prob"] is not None for row in rows),
+        "all_legs_binary_count": sum(row["full_hit"] is not None for row in rows),
+        "scored_count": len(scored),
+        "expected_full_hits": sum(expected) if scored else None,
+        "observed_full_hits": sum(actual) if scored else None,
+        "brier": fmean((p - hit) ** 2 for p, hit in zip(expected, actual)) if scored else None,
+        "log_loss": fmean(loss(p, hit) for p, hit in zip(expected, actual)) if scored else None,
+        "scored_game_count": len(games),
+        "max_scored_card_share_one_game": max(games.values()) / len(scored) if games else None,
+        "exclusions": dict(Counter(row["exclusion"] for row in rows if row["exclusion"] is not None)),
+    }
+
+
+def summarize_published_calibration(evidence, slate, grades):
+    """Score immutable joint probabilities on the original full-card terms."""
+    offers = {reference["offer_sha256"]: card for reference, card in zip(evidence["cards"], slate["parlays"])
+              if reference["pre_kickoff_observed"]}
+    rows, by_scope, by_size = [], defaultdict(list), defaultdict(list)
+    for grade in grades:
+        card = offers[grade["offer_sha256"]]
+        probability = card.get("joint_model_prob")
+        if type(probability) not in (int, float) or not 0 <= probability <= 1:
+            probability = None
+        outcomes = [leg["outcome"] for leg in grade["legs"]]
+        binary = bool(outcomes) and all(outcome in ("hit", "miss") for outcome in outcomes)
+        if not binary:
+            exclusion = "void_leg" if "void" in outcomes else "unresolved_leg"
+        else:
+            exclusion = "missing_recorded_joint_probability" if probability is None else None
+        row = {
+            "offer_sha256": grade["offer_sha256"], "scope": grade["scope"],
+            "leg_count": len(outcomes), "game_ids": sorted({leg["game_id"] for leg in grade["legs"]}),
+            "joint_model_prob": probability, "full_hit": all(outcome == "hit" for outcome in outcomes) if binary else None,
+            "joint_model_version": card.get("offer_lineage", {}).get("joint_model_version"),
+            "exclusion": exclusion,
+        }
+        rows.append(row)
+        by_scope[grade["scope"]].append(row)
+        by_size[(grade["scope"], len(outcomes))].append(row)
+    return {
+        "probability_basis": "recorded_joint_model_prob",
+        "score_population": "observed_published_cards_with_binary_outcomes_for_every_original_leg",
+        "total": _score_published_cards(rows),
+        "by_scope": {scope: _score_published_cards(cards) for scope, cards in sorted(by_scope.items())},
+        "by_scope_and_leg_count": [{"scope": scope, "leg_count": size, **_score_published_cards(cards)}
+                                   for (scope, size), cards in sorted(by_size.items())],
+        "cards": rows,
+    }
+
+
+def evaluate(observation_path, outcome_path, *, calibration=False):
     evidence, slate, schedule = read_observation(observation_path)
     bundle = capture.load_capture(outcome_path)
     outcome = bundle["manifest"]
@@ -106,6 +170,9 @@ def evaluate(observation_path, outcome_path):
         "excluded_unverified_offers": sum(not row["pre_kickoff_observed"] for row in evidence["cards"]),
         **results, "adoption_approved": False,
     }
+    if calibration:
+        body.update(kind="nfl.public_parlay_calibration.v1",
+                    calibration=summarize_published_calibration(evidence, slate, results["cards"]))
     return {**body, "report_id": fingerprint(body)}
 
 
@@ -113,10 +180,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--observation", type=Path, required=True)
     parser.add_argument("--outcomes", type=Path, required=True)
+    parser.add_argument("--calibration", action="store_true", help="include descriptive full-card probability scores")
     parser.add_argument("--report-dir", type=Path, help="retain the result in a local append-only directory")
     args = parser.parse_args()
     try:
-        report = evaluate(args.observation, args.outcomes)
+        report = evaluate(args.observation, args.outcomes, calibration=args.calibration)
         encoded = json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n"
         if args.report_dir:
             directory = args.report_dir.resolve()

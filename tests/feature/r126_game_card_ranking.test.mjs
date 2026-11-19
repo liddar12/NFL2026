@@ -24,7 +24,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 test('published offer lineage is scope-specific and survives archive and grading', () => {
   const output = execFileSync('python3', ['-B', '-c', `
-import copy, json
+import copy, json, math
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from scripts.models import parlay_builder as pb
@@ -53,9 +53,25 @@ with TemporaryDirectory() as temp:
     assert [{k:v for k,v in c.items() if k!='offer_lineage'} for c in original['parlays']] == pb.build_parlays(games,calibration_path=str(first))
     for card in original['parlays']:
         assert card['offer_lineage']==default_versions[card['scope']]
+        if card['scope']=='week':
+            assert card['joint_model_prob']==math.prod(leg['model_prob'] for leg in card['legs'])
+    raw=[pb.make_leg('moneyline','H0 ML',.723),pb.make_leg('rb_rush_yds','Runner',.681)]
+    exact, comparison=pb._combined_probs(raw,correlated=True)
+    pair=pb._make_parlay('test','game',raw,game_id='0')
+    assert pair['joint_model_prob']==exact
+    assert pair['joint_model_prob']!=(1+pair['model_ev'])*comparison
     def validate(doc, name):
         validate_against_schema(doc,json.loads(Path(f'data/contracts/{name}.schema.json').read_text()),name)
     validate(original,'parlays')
+    check_parlay_coverage(original,pool,{}, {})
+    changed_probability=copy.deepcopy(original)
+    changed_probability['parlays'][0]['joint_model_prob']=0
+    try:
+        check_parlay_coverage(changed_probability,pool,{}, {})
+    except ValidationError as exc:
+        assert 'joint probability disagrees' in str(exc), exc
+    else:
+        raise AssertionError('mismatched published probability was accepted')
     unknown=copy.deepcopy(original)
     unknown['parlays'][0].pop('offer_lineage')
     try:
@@ -72,6 +88,9 @@ with TemporaryDirectory() as temp:
     assert kept['offer_lineage']['generated_utc']==at
     reviewed=review_parlay(kept,6,{})
     assert reviewed['offer_lineage']==kept['offer_lineage']
+    assert reviewed['joint_model_prob']==kept['joint_model_prob']
+    original_game=next(c for c in original['parlays'] if c['parlay_id']==kept['parlay_id'])
+    assert kept['joint_model_prob']==original_game['joint_model_prob']
     legacy={k:v for k,v in kept.items() if k!='offer_lineage'}
     assert 'offer_lineage' not in review_parlay(legacy,6,{})
     print('lineage validated without changing cards')

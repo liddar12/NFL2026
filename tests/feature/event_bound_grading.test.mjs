@@ -115,6 +115,38 @@ emit(grade_cards(evidence,slate,schedule,observed,[stats],[snap,cle_sheet,no_she
   assert.deepEqual(r.by_scope.game, { full_hit: 1, loss: 1, pending: 1 });
 });
 
+test('published calibration scores only the recorded probability of the original full card', () => {
+  const result = py(`
+from scripts.grade_observed_parlays import summarize_published_calibration
+
+cards = [dict(joint_model_prob=p) for p in (.6,.25,.4,.3,None)]
+cards[-1] = dict(model_ev=.1,legs=[dict(model_prob=.8,implied_prob=.5)])
+references = [dict(offer_sha256=str(i),pre_kickoff_observed=True) for i in range(len(cards))]
+cases = [
+    ('game',[('A','hit'),('A','hit')]), ('game',[('A','miss'),('A','hit')]),
+    ('week',[('A','miss'),('B','pending')]), ('week',[('A','hit'),('B','void')]),
+    ('game',[('A','hit'),('A','hit')]),
+]
+grades = [dict(offer_sha256=str(i),scope=scope,legs=[dict(game_id=gid,outcome=o) for gid,o in terms])
+          for i,(scope,terms) in enumerate(cases)]
+emit(summarize_published_calibration(dict(cards=references),dict(parlays=cards),grades))
+`);
+  assert.equal(result.total.eligible_offers, 5);
+  assert.equal(result.total.recorded_joint_probability_count, 4);
+  assert.equal(result.total.all_legs_binary_count, 3);
+  assert.equal(result.total.scored_count, 2);
+  assert.deepEqual(result.total.exclusions, {
+    unresolved_leg: 1, void_leg: 1, missing_recorded_joint_probability: 1,
+  });
+  assert.equal(result.total.expected_full_hits, .85);
+  assert.equal(result.total.observed_full_hits, 1);
+  assert.ok(Math.abs(result.total.brier - ((.6 - 1) ** 2 + .25 ** 2) / 2) < 1e-12);
+  assert.ok(Math.abs(result.total.log_loss + (Math.log(.6) + Math.log(.75)) / 2) < 1e-12);
+  assert.equal(result.by_scope.week.brier, null);
+  assert.equal(result.by_scope_and_leg_count[0].leg_count, 2);
+  assert.equal(result.by_scope.game.max_scored_card_share_one_game, 1);
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]

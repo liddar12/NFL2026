@@ -1360,11 +1360,11 @@ export default async function mountParlays(el) {
     const card = (atd ? betShown.atd : betShown.list)[i];
     if (!card) return;
     const legs = (card.legs || []).map((l) => ({ ...l, game_id: l.game_id != null ? l.game_id : card.game_id }));
-    // the card's own model chance: ATD cards carry it; a slate card carries its
-    // EV over the product of its prices, so model = (1 + EV) x that product
     const priced = legs.reduce((p, l) => p * Number(l.implied_prob), 1);
-    const model = atd ? card.model_prob
-      : (Number.isFinite(priced) && Number.isFinite(Number(card.model_ev)) ? (1 + Number(card.model_ev)) * priced : null);
+    const joint = card.joint_model_prob;
+    const legacyModel = Number.isFinite(priced) && Number.isFinite(Number(card.model_ev))
+      ? (1 + Number(card.model_ev)) * priced : null;
+    const model = atd ? card.model_prob : (Number.isFinite(joint) && joint >= 0 && joint <= 1 ? joint : legacyModel);
     const source = atd ? 'td' : (scopeOf(card) === 'week' ? 'week' : 'game');
     import('./mybets.js')
       .then((mod) => mod.openBetSheet({ source, week: curWeek, legs, title: card.parlay_id || card.mode || null, model }))

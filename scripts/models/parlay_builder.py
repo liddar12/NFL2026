@@ -478,6 +478,7 @@ def _make_parlay(parlay_id, scope, legs, game_id=None, corr=None):
         "parlay_id": parlay_id,
         "scope": scope,
         "legs": [_strip_leg(l) for l in legs],
+        "joint_model_prob": model_p,
         "model_ev": round(ev, 4),
         "confidence_tier": tier,
         "correlation_note": note,

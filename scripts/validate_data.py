@@ -839,6 +839,17 @@ def check_parlay_coverage(parlays, games, weekly, projections, excluded_ids=()):
     if problems:
         raise ValidationError("parlay candidate coverage: " + "; ".join(problems))
     cards = parlays.get("parlays") or []
+    if any("joint_model_prob" in card for card in cards):
+        for card in cards:
+            joint = card.get("joint_model_prob")
+            if type(joint) not in (int, float) or not 0 <= joint <= 1:
+                raise ValidationError("published parlay joint probability missing or invalid")
+            implied = math.prod(leg["implied_prob"] for leg in card["legs"])
+            expected_ev = round(joint / implied - 1, 4) if implied > 0 else -1.0
+            if expected_ev != card["model_ev"]:
+                raise ValidationError("published parlay joint probability disagrees with simulated EV")
+            if card["scope"] == "week" and joint != math.prod(leg["model_prob"] for leg in card["legs"]):
+                raise ValidationError("published week parlay joint probability disagrees with independent legs")
     if not any("offer_lineage" in card for card in cards):
         return  # Earlier generated documents carry no lineage.
     by_scope = {}
