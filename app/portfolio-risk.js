@@ -3,6 +3,25 @@ const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const validProbability = (p) => typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 1;
 
+const YARDAGE_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds', 'te_rec_yds']);
+
+function selectionIdentity(leg, game, team) {
+  if (!game || typeof leg.selection !== 'string' || !leg.selection.trim()) return null;
+  if (leg.market === 'moneyline') {
+    return [game.game_id, leg.market, team].every((part) => part != null)
+      && [game.home, game.away].includes(team) ? [String(game.game_id), leg.market, team] : null;
+  }
+  const player = leg.gsis_id ?? leg.owner;
+  if ((!YARDAGE_MARKETS.has(leg.market) && leg.market !== 'anytime_td')
+      || typeof player !== 'string' || !player.trim() || player.startsWith('team:')
+      || ![game.home, game.away].includes(leg.team)
+      || (YARDAGE_MARKETS.has(leg.market) && !Number.isFinite(leg.line))) return null;
+  // Keep exact displayed terms in the identity. An unrecognized direction,
+  // differing comparison, or alternate rung must remain a different selection.
+  return [String(game.game_id), leg.market, player, leg.team, leg.line ?? null,
+    leg.direction ?? null, leg.comparison_operator ?? null, leg.selection];
+}
+
 /** Shared selections reuse one outcome. Only one ML selection per game is modeled.
  * Non-ML/mixed-vintage portfolios still report exposure, never fake independence. */
 export function summarizePortfolio(cards, schedule = [], week = null) {
@@ -16,11 +35,13 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
     });
   });
   const exposures = new Map();
+  const selections = new Map();
   const events = new Map();
   const sets = [];
   let reason = null;
   for (const card of cards) {
     const seen = new Set();
+    const selected = new Set();
     const eventIds = [];
     for (const leg of card.legs || []) {
       const team = leg.market === 'moneyline' ? String(leg.selection).replace(/ ML$/, '') : null;
@@ -28,6 +49,16 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
       const id = leg.game_id ?? card.game_id ?? (matches?.size === 1 ? [...matches][0] : null);
       const key = id != null ? `game:${id}` : `selection:${leg.market}:${leg.selection}`;
       const game = games.get(String(id));
+      const identity = selectionIdentity(leg, game, team);
+      if (identity != null) {
+        const selectionKey = JSON.stringify(identity);
+        if (!selected.has(selectionKey)) {
+          const shared = selections.get(selectionKey) || { key: selectionKey, label: leg.selection, cards: 0 };
+          shared.cards += 1;
+          selections.set(selectionKey, shared);
+          selected.add(selectionKey);
+        }
+      }
       if (!seen.has(key)) {
         const row = exposures.get(key) || { key, kind: game ? 'game' : 'selection',
           label: game ? `${game.away} @ ${game.home}` : String(leg.selection), cards: 0 };
@@ -52,7 +83,9 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
     sets.push(eventIds);
   }
   const rows = [...exposures.values()].sort((a, b) => b.cards - a.cards || a.key.localeCompare(b.key));
-  const out = { cards: cards.length, exposures: rows, maxExposure: rows[0]?.cards || 0,
+  const selectionExposures = [...selections.values()]
+    .sort((a, b) => b.cards - a.cards || a.key.localeCompare(b.key));
+  const out = { selectionExposures, cards: cards.length, exposures: rows, maxExposure: rows[0]?.cards || 0,
     pZeroWinners: null, expectedWinners: null, reason };
   if (events.size > 16) out.reason ||= 'event_limit_exceeded';
   if (out.reason || !cards.length) return out;
@@ -76,12 +109,17 @@ export function renderPortfolioRisk(summary) {
   const top = summary.exposures[0];
   const exact = summary.pZeroWinners != null;
   const common = top.cards === summary.cards;
+  const shared = summary.selectionExposures?.[0];
+  const sharedLoss = !exact && shared?.cards > 1
+    ? `<p>If <strong>${esc(shared.label)}</strong> loses, it defeats ${shared.cards} of the ${summary.cards} shown cards.</p>`
+    : '';
   return '<details class="pfilters portfolio-risk">'
     + `<summary>SHARED RISK · ${top.cards}/${summary.cards} share one ${top.kind === 'game' ? 'game' : 'selection'}</summary>`
     + `<p>${esc(top.label)} appears in ${top.cards} of these ${summary.cards} shown cards. `
     + (common && exact ? 'One loss of that shared selection defeats every shown card. '
       : 'These cards are not independent chances. ')
     + 'Different card names do not remove shared exposure.</p>'
+    + sharedLoss
     + (exact ? `<p>Model-implied chance of zero winners: ${(100 * summary.pZeroWinners).toFixed(1)}%. `
       + `Expected winners: ${summary.expectedWinners.toFixed(2)} of ${summary.cards}. `
       + 'Assumes independent games, not independent cards; forecast probabilities can be wrong.</p>'

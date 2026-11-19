@@ -230,3 +230,27 @@ No generated data or tests for the existing contracts had to change.
 The affected checks and exporter acceptance passed 42 tests with the pinned
 engine. The preceding failed gate is retained in
 `code/evidence/nfl-outcome-workflow-full-gate-20261119.log`.
+
+## MY Parlays shared exposure
+
+MY now shows how many of the cards on screen share its most common game or
+selection. Where game, player and wager terms match, the expanded panel names
+the selection whose loss would defeat multiple shown cards. It counts each
+card once, keeps different rungs and directions distinct, and withholds joint
+probability for mixed sets. Removing the seeds clears the panel and the saved
+card selection. This display changes no rankings, prices or recorded grades.
+
+The 13 portfolio feature tests and 12 MY/Week Chromium tests passed.
+The mobile test checks the count, bounds and reset, and the existing desktop
+and mobile layout checks still pass. The first local browser invocation used
+a different port from the fixture's stored login. The corrected invocation
+used the matching origin and ran all 12 tests.
+
+The retained Week 11 snapshot provides a separate model-implied comparison.
+The shipped moneyline set has eighteen out of eighteen cards exposed to a
+single selection. The shadow cap reduces maximum single-selection exposure
+to nine. Under the existing game-independence assumption, expected winners
+change from 7.34 to 5.26 while modeled zero-winner risk goes from 11.95% to
+9.23%. These are different objectives on a frozen forecast, and the
+alternative needs prospective evaluation before any selection-policy decision.
+See `code/evidence/nfl-week-portfolio-counterfactual-20261119.json`.

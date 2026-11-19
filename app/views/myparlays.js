@@ -80,6 +80,7 @@ import {
   loadJson, getMyCardScores, getPlayerProjections, getPlayerWeekly, getScheduleFull,
   getJointBacktest,
 } from '../data.js';
+import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
 import { simulateMoney, simulationBreakdown } from '../parlay-simulation.js';
 import {
   combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
@@ -156,6 +157,8 @@ export function poolLegs(pool) {
       leg.label = row.player;
       leg.mu = row.mu;
       leg.line = rung.line;
+      leg.direction = rung.learning_receipt?.direction ?? rung.direction;
+      leg.comparison_operator = rung.learning_receipt?.comparison_operator ?? rung.comparison_operator;
       leg.position = row.position;
       // R77 — a QUESTIONABLE player stays in the pool at his full price (Q is
       // priced + labelled; DOUBTFUL and worse never reach the pool). The flag
@@ -843,6 +846,13 @@ function paintRecord(el) {
 
 function paint(el) {
   const list = el.querySelector('#mp-list');
+  const riskHost = el.querySelector('#mp-shared-risk');
+  const wasRiskOpen = riskHost?.querySelector('details')?.open ?? false;
+  if (riskHost) {
+    riskHost.hidden = true;
+    riskHost.innerHTML = '';
+  }
+  state.shown = [];
   const seedBox = el.querySelector('#mp-seeds');
   const dialBox = el.querySelector('.mp-dial');
   // R89 — the upcoming legs are read ONCE per paint: the card search needs them,
@@ -903,6 +913,12 @@ function paint(el) {
     }
     html.push(renderCard(card, i));
   });
+  if (riskHost) {
+    riskHost.innerHTML = renderPortfolioRisk(summarizePortfolio(cards, state.games, state.pool?.week));
+    riskHost.hidden = !riskHost.innerHTML;
+    const details = riskHost.querySelector('details');
+    if (details) details.open = wasRiskOpen;
+  }
   list.innerHTML = html.join('');
   // R110 — I BET THIS on every card; the sheet (app/views/mybets.js) loads on the tap.
   state.shown = cards;
@@ -995,7 +1011,7 @@ export default async function mountMyParlays(el) {
       + `<span class="est">ESTIMATE</span></div>`
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
-    + '<div id="mp-list" class="card-list"></div>';
+    + '<div id="mp-shared-risk" hidden></div><div id="mp-list" class="card-list"></div>';
   const mpList = el.querySelector('#mp-list');
   if (mpList) mpList.addEventListener('click', onBetTap);
 

@@ -141,3 +141,16 @@ test('cards that share no selection are not described as shared risk', () => {
   const risk = summarizePortfolio([{ legs: [leg('A', .6, 'g1')] }, { legs: [leg('C', .7, 'g2')] }], schedule, 6);
   assert.equal(renderPortfolioRisk(risk), '');
 });
+
+test('a mixed portfolio names a repeated exact player line without estimating joint risk', () => {
+  const receiver = { market: 'wr_rec_yds', selection: 'A. Receiver 60+ rec yds', owner: 'wr1',
+    game_id: 'g1', team: 'A', line: 59.5, direction: 'over', comparison_operator: 'gte', model_prob: .65 };
+  const cards = [{ legs: [receiver, receiver] }, { legs: [receiver, leg('C', .7, 'g2')] },
+    { legs: [{ ...receiver, line: 69.5 }] }, { legs: [{ ...receiver, direction: 'under' }] }];
+  const risk = summarizePortfolio(cards, schedule, 6);
+  assert.equal(risk.maxExposure, 4);
+  assert.equal(risk.selectionExposures[0].cards, 2);
+  assert.equal(risk.pZeroWinners, null);
+  assert.match(renderPortfolioRisk(risk), /A\. Receiver 60\+ rec yds<\/strong> loses, it defeats 2 of the 4 shown cards/);
+  assert.doesNotMatch(renderPortfolioRisk(risk), /Expected winners/);
+});
