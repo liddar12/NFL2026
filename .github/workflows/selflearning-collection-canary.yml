@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      EXPECTED_ENGINE_COMMIT: 1451ff19bd06d9c72e725adadbd84b1f1a6eb490
+      EXPECTED_ENGINE_COMMIT: 5fd6475cc1895f0a7f63132dfae58c7e0729f458
     steps:
       - name: Checkout exact NFL test tree
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: liddar12/SelfLearning
-          ref: 1451ff19bd06d9c72e725adadbd84b1f1a6eb490
+          ref: 5fd6475cc1895f0a7f63132dfae58c7e0729f458
           path: selflearning
           persist-credentials: false
       - name: Setup hosted test Python
@@ -79,6 +79,11 @@ jobs:
             tests/postgres/test_capture_application_adapter.py \
             tests/postgres/test_capture_application_api.py \
             tests/postgres/test_capture_delivery_adapter.py \
+            tests/postgres/test_capture_delivery_job.py \
+            tests/postgres/test_capture_intake_api.py \
+            tests/postgres/test_nfl_outcome_export_api.py \
+            tests/postgres/test_nfl_trace_api.py \
+            tests/postgres/test_capture_application_large.py \
             2>&1 | tee "$RUNNER_TEMP/outcome-replay.log"
       - name: Retain test evidence only
         if: always()

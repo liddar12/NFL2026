@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 const source = readFileSync(new URL('../../.github/workflows/selflearning-canary.yml', import.meta.url), 'utf8');
-const PIN = '1451ff19bd06d9c72e725adadbd84b1f1a6eb490';
+const PIN = '5fd6475cc1895f0a7f63132dfae58c7e0729f458';
 const NAMES = [
   'Checkout exact NFL test tree', 'Checkout pinned public engine', 'Setup Python', 'Setup Node',
   'Refuse missing or drifting engine before tests', 'Run all focused integration tests without skips',
