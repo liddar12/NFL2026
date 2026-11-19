@@ -438,6 +438,41 @@ test('(c) a code commit lands on main mid-run: stale producer output is refused'
   } finally { cleanup(world); }
 });
 
+for (const metadataOnly of [true, false]) {
+  test(metadataOnly ? 'concurrent generated team timestamps allow replay'
+    : 'a concurrent team identity change still refuses replay', () => {
+    const world = makeWorld();
+    try {
+      const path = 'data/fixtures/teams_espn.json';
+      mkdirSync(join(world.a, 'data', 'fixtures'), { recursive: true });
+      const fixture = { season: 2026, source: 'espn', updated_utc: T0, teams: { SEA: { abbrev: 'SEA' } } };
+      writeJson(world.a, path, fixture);
+      git(world.a, 'add', path);
+      git(world.a, 'commit', '--quiet', '-m', 'add generated team fixture');
+      git(world.a, 'push', '--quiet', 'origin', 'main');
+      git(world.b, 'pull', '--quiet', '--ff-only', 'origin', 'main');
+
+      generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
+      writeJson(world.b, path, { ...fixture, updated_utc: TB });
+      writeJson(world.a, path, { ...fixture, updated_utc: TA,
+        teams: metadataOnly ? fixture.teams : { NE: { abbrev: 'NE' } } });
+      git(world.a, 'commit', '--quiet', '-am', 'data: refreshed team fixture');
+      git(world.a, 'push', '--quiet', 'origin', 'main');
+
+      const result = publish(world.b, 'data: daily pipeline refresh [skip actions]');
+      if (metadataOnly) {
+        assert.equal(result.status, 0, result.out);
+        assert.equal(readMain(world, path).updated_utc, TB);
+        assert.equal(readMain(world, 'data/game_predictions.json').generated_utc, TB);
+      } else {
+        assert.notEqual(result.status, 0, result.out);
+        assert.match(result.out, /generation source changed/);
+        assert.deepEqual(Object.keys(readMain(world, path).teams), ['NE']);
+      }
+    } finally { cleanup(world); }
+  });
+}
+
 test('(c2) a CLEAN replay is put through the contract gate as well', () => {
   const world = makeWorld();
   try {
