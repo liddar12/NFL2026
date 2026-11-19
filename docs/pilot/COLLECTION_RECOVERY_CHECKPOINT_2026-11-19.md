@@ -319,3 +319,23 @@ game-bound records and reviewed player ID mappings.
 
 - [NFL Inactives](https://www.nfl.com/inactives/)
 - [BALLDONTLIE Player Designations](https://nfl.balldontlie.io/#get-player-designations)
+
+## Independently observed Week 11 forecast
+
+At 10:44 a.m. CST on November 19 the ordinary public app served a leg pool,
+schedule and parlay calibration file that matched the bytes at NFL main
+`539059ee`. The producer captured the inputs using its real clock, and
+the engine finalized 994 forecasts without rejections. A second anonymous
+HTTP retrieval matched the stored pool. The local journal committed the
+publication attestation before all 13 events kicked off.
+
+Reopening the SQLite journal read-only verified 525 receiving, 331 rushing
+and 138 passing forecasts in the eligible publication cohort. This marks
+one observation of the baseline's publicly retrievable yardage legs.
+There are zero outcome revisions, and the capture does not identify which
+cards a viewer saw or any shadow probabilities. It used no hosted writes.
+
+Evidence and the path to the retained local journal are in
+`code/evidence/nfl-local-live-observation-20261119.json`. Retain that journal
+and the original source files so later official outcomes can be matched
+to the same receipt IDs.
