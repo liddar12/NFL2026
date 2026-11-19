@@ -308,7 +308,10 @@ def main():
     from selflearn_core.store.receipt_journal import ReceiptJournal
     from services.web.application import create_app
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(HandoffAcceptance)
-    return not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful()
+    expected = suite.countTestCases()
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    return not (expected > 0 and result.testsRun == expected and not result.skipped
+                and result.wasSuccessful())
 
 
 if __name__ == "__main__":
