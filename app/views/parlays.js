@@ -117,7 +117,7 @@ import {
   getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, loadJson,
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
-import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
+import { summarizePortfolio, renderPortfolioRisk, renderGameSelectionRisk } from '../portfolio-risk.js';
 import { confChip, confClass } from '../bet-types.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
@@ -944,7 +944,8 @@ export default async function mountParlays(el) {
     listEl.dataset.parlayWeek = String(selWeek);
     const coverageNote = selWeek === curWeek && parlays === curParlays
       ? renderCandidateCoverage(data.candidate_coverage, active, matchupById) : '';
-    listEl.innerHTML = coverageNote + (shown.length
+    const gameRisk = active === 'game' ? renderGameSelectionRisk(shown, sched?.games, selWeek) : '';
+    listEl.innerHTML = coverageNote + gameRisk + (shown.length
       ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf
         ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'
@@ -1134,7 +1135,8 @@ export default async function mountParlays(el) {
       const res = btMod.gameMixCards(legs, n, btMod.typeTable(typeCalib, typePool), typeGame);
       cards = btMod.sortCards(res.cards, typeState.sort);
       html = cards.length
-        ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games, exact: res.exact })).join('')
+        ? renderGameSelectionRisk(cards, games, typePool.week)
+          + cards.map((c) => btMod.renderTypeCard(c, { scope, types, games, exact: res.exact })).join('')
         : `<div class="state">${res.reason}</div>`;
     } else {
       // R133 — owner: whenever MONEYLINE is chosen, the two most likely

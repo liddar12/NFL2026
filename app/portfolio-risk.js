@@ -7,24 +7,27 @@ const YARDAGE_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds', 'te
 
 function selectionIdentity(leg, game, team) {
   if (!game || typeof leg.selection !== 'string' || !leg.selection.trim()) return null;
+  const sideTeam = leg.side === 'home' ? game.home : leg.side === 'away' ? game.away : null;
   if (leg.market === 'moneyline') {
-    return [game.game_id, leg.market, team].every((part) => part != null)
+    return (sideTeam == null || sideTeam === team)
       && [game.home, game.away].includes(team) ? [String(game.game_id), leg.market, team] : null;
   }
   const player = leg.gsis_id ?? leg.owner;
+  const playerTeam = leg.team ?? sideTeam;
   if ((!YARDAGE_MARKETS.has(leg.market) && leg.market !== 'anytime_td')
       || typeof player !== 'string' || !player.trim() || player.startsWith('team:')
-      || ![game.home, game.away].includes(leg.team)
+      || typeof playerTeam !== 'string' || ![game.home, game.away].includes(playerTeam)
+      || (sideTeam != null && sideTeam !== playerTeam)
       || (YARDAGE_MARKETS.has(leg.market) && !Number.isFinite(leg.line))) return null;
   // Keep exact displayed terms in the identity. An unrecognized direction,
   // differing comparison, or alternate rung must remain a different selection.
-  return [String(game.game_id), leg.market, player, leg.team, leg.line ?? null,
+  return [String(game.game_id), leg.market, player, playerTeam, leg.line ?? null,
     leg.direction ?? null, leg.comparison_operator ?? null, leg.selection];
 }
 
 /** Shared selections reuse one outcome. Only one ML selection per game is modeled.
  * Non-ML/mixed-vintage portfolios still report exposure, never fake independence. */
-export function summarizePortfolio(cards, schedule = [], week = null) {
+export function summarizePortfolio(cards, schedule = [], week = null, { estimateJoint = true } = {}) {
   const games = new Map(schedule.filter((g) => week == null || Number(g.week) === Number(week))
     .map((g) => [String(g.game_id), g]));
   const teams = new Map();
@@ -88,7 +91,7 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
   const out = { selectionExposures, cards: cards.length, exposures: rows, maxExposure: rows[0]?.cards || 0,
     pZeroWinners: null, expectedWinners: null, reason };
   if (events.size > 16) out.reason ||= 'event_limit_exceeded';
-  if (out.reason || !cards.length) return out;
+  if (!estimateJoint || out.reason || !cards.length) return out;
   const keys = [...events.keys()].sort();
   const indices = new Map(keys.map((key, i) => [key, i]));
   const masks = sets.map((ids) => ids.reduce((mask, key) => mask | (1 << indices.get(key)), 0));
@@ -103,6 +106,19 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
   return out;
 }
 
+function sharedLossText(shared, total) {
+  return `<p>If <strong>${esc(shared.label)}</strong> loses, it defeats ${shared.cards} of the ${total} shown cards.</p>`;
+}
+
+export function renderGameSelectionRisk(cards, schedule, week) {
+  const summary = summarizePortfolio(cards, schedule, week, { estimateJoint: false });
+  const shared = summary.selectionExposures[0];
+  if (!shared || shared.cards < 2) return '';
+  return '<details class="pfilters portfolio-risk game-selection-risk">'
+    + `<summary>SHARED SELECTION · ${shared.cards}/${summary.cards} cards</summary>`
+    + sharedLossText(shared, summary.cards) + '</details>';
+}
+
 export function renderPortfolioRisk(summary) {
   if (!summary || summary.cards < 2 || !summary.exposures.length
       || summary.exposures[0].cards < 2) return '';
@@ -110,9 +126,7 @@ export function renderPortfolioRisk(summary) {
   const exact = summary.pZeroWinners != null;
   const common = top.cards === summary.cards;
   const shared = summary.selectionExposures?.[0];
-  const sharedLoss = !exact && shared?.cards > 1
-    ? `<p>If <strong>${esc(shared.label)}</strong> loses, it defeats ${shared.cards} of the ${summary.cards} shown cards.</p>`
-    : '';
+  const sharedLoss = !exact && shared?.cards > 1 ? sharedLossText(shared, summary.cards) : '';
   return '<details class="pfilters portfolio-risk">'
     + `<summary>SHARED RISK · ${top.cards}/${summary.cards} share one ${top.kind === 'game' ? 'game' : 'selection'}</summary>`
     + `<p>${esc(top.label)} appears in ${top.cards} of these ${summary.cards} shown cards. `

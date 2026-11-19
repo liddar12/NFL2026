@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { summarizePortfolio, renderPortfolioRisk } from '../../app/portfolio-risk.js';
+import { summarizePortfolio, renderPortfolioRisk, renderGameSelectionRisk } from '../../app/portfolio-risk.js';
 import { availabilityOf, renderAvailChip } from '../../app/availability.js';
 import { teamWeekPoints } from '../../app/grade-weekly.js';
 
@@ -10,6 +10,22 @@ const root = new URL('../../', import.meta.url);
 const py = (code) => JSON.parse(execFileSync('python3', ['-c', code], { cwd: root, encoding: 'utf8' }));
 const leg = (team, p, game = 'g1') => ({ market: 'moneyline', selection: `${team} ML`, model_prob: p, game_id: game });
 const schedule = [{ game_id: 'g1', home: 'A', away: 'B', week: 6 }, { game_id: 'g2', home: 'C', away: 'D', week: 6 }];
+
+test('Game warning verifies shared props on older published cards using the scheduled side', () => {
+  const prop = { market: 'wr_rec_yds', selection: 'A. Receiver 60+ rec yds', side: 'home',
+    gsis_id: 'player-a', line: 59.5 };
+  const card = (legs) => ({ game_id: 'g1', legs });
+  const original = card([prop, prop]);
+  const shared = card([{ ...prop, team: 'A' }]);
+  const different = card([{ ...prop, line: 64.5 }, { ...prop, team: 'B' },
+    { ...prop, gsis_id: 'player-b' }, { ...prop, comparison_operator: 'lte' }]);
+  const html = renderGameSelectionRisk([original, shared, different], schedule, 6);
+  assert.match(html, /2\/3 cards/);
+  assert.match(html, /A\. Receiver 60\+ rec yds<\/strong> loses, it defeats 2 of the 3 shown cards/);
+  assert.doesNotMatch(html, /chance of zero winners|share one game/);
+  assert.equal(renderGameSelectionRisk([original, different], schedule, 6), '');
+  assert.equal(renderGameSelectionRisk([original, shared], schedule, 7), '');
+});
 
 test('identical shared outcome is one risk event, not independent cards', () => {
   const cards = Array.from({ length: 18 }, () => ({ legs: [leg('A', .8)] }));

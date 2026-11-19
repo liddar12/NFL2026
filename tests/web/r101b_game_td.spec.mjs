@@ -93,6 +93,15 @@ test('GAME: up to 7 legs from one game; three or more are labelled an estimate',
   await page.click('#td-controls [data-type="all"]');
   await expect(page.locator('#td-controls .td-step-n')).toHaveText('2');
   await expect(page.locator('#atd-list .type-card .ev .k').first()).toHaveText('MODEL HIT');
+  const risk = page.locator('#atd-list .game-selection-risk');
+  const cards = page.locator('#atd-list .type-card');
+  const displayed = await cards.evaluateAll((nodes) => nodes.map((card) =>
+    [...card.querySelectorAll('.leg-nm')].map((leg) => leg.textContent.trim())));
+  const shared = new Map();
+  displayed.forEach((legs) => new Set(legs).forEach((leg) => shared.set(leg, (shared.get(leg) || 0) + 1)));
+  const count = Math.max(...shared.values());
+  expect(count).toBeGreaterThan(1);
+  await expect(risk.locator('summary')).toHaveText(`SHARED SELECTION · ${count}/${displayed.length} cards`);
   for (let i = 0; i < 10; i++) {
     const plus = page.locator('#td-controls [data-step="1"]');
     if (await plus.isDisabled()) break;
@@ -112,6 +121,7 @@ test('GAME: a kind one game cannot fill is an honest empty state, and PUBLISHED 
   // side), so MONEYLINE alone can never fill a 2-leg same-game card
   await page.click('#td-controls [data-type="ml"]');
   await expect(page.locator('#atd-list .state')).toContainText(/This game has [01] legs? of these kinds|No card of this size can be built from this game/);
+  await expect(page.locator('#atd-list .game-selection-risk')).toHaveCount(0);
   await page.click('#td-controls [data-type="published"]');
   await expect(page.locator('#parlays-list')).toBeVisible();
   await expect(page.locator('#atd-list')).toBeHidden();
