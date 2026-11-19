@@ -268,6 +268,40 @@ with TemporaryDirectory() as folder:
   assert.equal(result.noop, 'publisher_no_new_commit');
 });
 
+test('public replay requires stable player identity before a hit or did-not-play grade', () => {
+  const r = py(`
+from scripts.grade_observed_parlays import grade_cards
+from scripts.observe_parlay_offers import classify_offers
+kickoff='2026-11-09T18:00:00Z'
+scheduled=[dict(games[0],kickoff_utc=kickoff,status='STATUS_SCHEDULED')]
+schedule=dict(season=2026,games=scheduled)
+slate=dict(season=2026,week=week,updated_utc='2026-11-09T17:00:00Z',parlays=[
+    dict(parlay_id='audit',scope='game',game_id=leg['game_id'],legs=[leg])])
+refs=classify_offers(slate,schedule,'2026-11-09T17:00:00Z')
+observed=[dict(scheduled[0],final=True,observed_utc='2026-11-09T23:00:00Z',**finals[leg['game_id']])]
+evidence=dict(season=2026,week=week,cards=refs)
+sheet=[cle_sheet,no_sheet]
+
+def outcome(rows, mapping, participation=sheet):
+    card=grade_cards(evidence,slate,schedule,observed,rows,participation,mapping)['cards'][0]
+    return (card['result'],card['legs'][0]['reason'])
+
+other = dict(stats,player_id='00-0031111',player_display_name='Different Player')
+emit(dict(
+    verified=outcome([stats],roster,[snap,*sheet]),
+    missing_roster=outcome([stats],[]),
+    unbound_stats=outcome([dict(stats,player_id=None)],roster),
+    unbound_absence=outcome([other],[]),
+    bound_absence=outcome([other],roster),
+))
+`);
+  assert.deepEqual(r.verified, ['full_hit', null]);
+  for (const name of ['missing_roster', 'unbound_stats', 'unbound_absence']) {
+    assert.deepEqual(r[name], ['pending', 'identity_unverified'], name);
+  }
+  assert.deepEqual(r.bound_absence, ['void', 'did_not_play']);
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]

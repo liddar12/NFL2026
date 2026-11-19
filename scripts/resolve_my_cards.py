@@ -188,7 +188,7 @@ def snap_evidence(leg, week, snaps_by_week):
     return "dnp", None
 
 
-def grade_prop(leg, week, by_week, snaps_by_week=None, context=None):
+def grade_prop(leg, week, by_week, snaps_by_week=None, context=None, *, require_stable_id=False):
     """(result, actual, reason) for one prop leg. Never a miss without evidence:
     a stat line, or (R106) a snap sheet showing he played and so gained 0 yards.
     A published snap sheet he is NOT on is a void (did_not_play) — the book's rule
@@ -197,7 +197,8 @@ def grade_prop(leg, week, by_week, snaps_by_week=None, context=None):
     if context is not None:
         from scripts.player_outcomes import grade_fact, player_event_facts
         fact = player_event_facts(leg, week, by_week.get(int(week)), None,
-                                  (snaps_by_week or {}).get(int(week)), context)
+                                  (snaps_by_week or {}).get(int(week)), context,
+                                  require_stable_id=require_stable_id)
         return grade_fact(fact, leg.get("market"), leg.get("line"))
     rows = by_week.get(int(week))
     if rows is None:

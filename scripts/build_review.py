@@ -817,7 +817,7 @@ def fully_excluded(row, excluded):
         l.get("game_id") is not None and str(l["game_id"]) in excluded for l in legs)
 
 
-def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=None):
+def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=None, *, require_stable_id=False):
     """R106 — leg -> (result, actual, reason) from FINAL scores, the nflverse stat
     line and the snap sheet, through the MY-cards graders (one rule for every
     card). The player's full name, team and line come from the leg-ledger row when
@@ -849,7 +849,8 @@ def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=N
                                    "selection": sel, "team": leg.get("team") or row.get("team") or team,
                                    "gsis_id": leg.get("gsis_id") or row.get("gsis_id"),
                                    "season": leg.get("season") or row.get("season"),
-                                   "line": line}, week, by_week, snaps, context)
+                                   "line": line}, week, by_week, snaps, context,
+                                  require_stable_id=require_stable_id)
         return None
     return grade
 

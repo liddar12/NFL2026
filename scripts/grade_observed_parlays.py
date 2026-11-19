@@ -61,7 +61,8 @@ def grade_cards(evidence, slate, schedule, observed_games, stats, snaps, roster)
             continue
         finals[gid] = row
     grade = direct_leg_grader(scheduled, finals, stats, index_snaps(snaps), None,
-                              context(scheduled.values(), finals, evidence["season"], identity_maps(roster)))
+                              context(scheduled.values(), finals, evidence["season"], identity_maps(roster)),
+                              require_stable_id=True)
     counts = defaultdict(Counter)
     rows = []
     for original, reference in zip(slate["parlays"], evidence["cards"]):
