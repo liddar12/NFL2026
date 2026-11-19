@@ -1,12 +1,19 @@
 # Workflow reliability and shared learning release roadmap
 
-Revision 3. November 18, 2026, 3:10 p.m. CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+Revision 4. November 19, 2026, 8:53 a.m. CST (America/Chicago). Codex owns this work.
 
 ## Current checkpoint
 
 ### NFL release-candidate reconciliation
 
-The local candidate reconciles the coverage branch with main at `640df164`.
+The current local candidate reconciles the coverage branch with main at
+`539059ee`. It carries forward 42 additional Week 11 MY offers and two
+additional ATD game offers. The main line report uses the November 19 nflverse
+snapshot and identifies all five Pittsburgh starters. Historical grading
+was replayed from the November 18 ESPN capture at 2:21 p.m. CST. The replay
+checks that frozen evidence against the November 19 publication baseline.
+
+The first local candidate reconciled the coverage branch with main at `640df164`.
 The six generated-file conflicts started from main's copies. The grading
 and replay CLIs rebuilt their outputs from the retained v2 capture with network
 access blocked. The line-report CLI used the retained November 18 nflverse
@@ -24,8 +31,13 @@ cards that previously showed void are pending. Their offers remain intact.
 Other retained cards also reflect event-bound stat and participation corrections.
 The retained audit logs are under `code/evidence/nfl-release-reconcile-*`.
 
-The candidate uses a bounded default of four feature workers on this machine.
-Full-gate acceptance and production verification remain open for this merge.
+The `640df164` candidate passed the smoke tests, all four calibration checks,
+and 364 browser tests. The data-contract and four feature failures shared one
+cause. The captured review reported unknown refit receipt membership, while
+the validator still expected matched counts to prove membership. The current
+candidate validates that review against captures and lock snapshots while
+preserving the unknown membership. Its full gate and production verification
+remain open.
 
 The new NFL source is `479ac73bcc14dbe5db0cc52f8de1f11cd903f68f` on
 `build/grading-coverage-20261118`. This checkpoint adds offer-derived grading
