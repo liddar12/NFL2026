@@ -1,0 +1,66 @@
+# Test-only durable collection acceptance. No production tokens or hosted writes.
+name: selflearning-collection-canary
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selflearning-collection-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-boundaries:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      EXPECTED_ENGINE_COMMIT: 0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a
+    steps:
+      - name: Checkout exact NFL test tree
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: nfl
+          persist-credentials: false
+      - name: Checkout exact engine test tree
+        uses: actions/checkout@v4
+        with:
+          repository: liddar12/SelfLearning
+          ref: 0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a
+          path: selflearning
+          persist-credentials: false
+      - name: Setup hosted test Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify immutable source inputs
+        shell: bash
+        run: |
+          test "$(git -C nfl rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C selflearning rev-parse HEAD)" = "$EXPECTED_ENGINE_COMMIT"
+      - name: Install pinned engine test dependencies
+        working-directory: selflearning
+        run: python -m pip install -r requirements.txt
+      - name: Exercise original-run recovery through local ASGI and SQLite
+        working-directory: nfl
+        shell: bash
+        run: |
+          set -o pipefail
+          python -B tests/pilot_collection_handoff.py \
+            --engine-checkout ../selflearning \
+            --expected-engine-sha "$EXPECTED_ENGINE_COMMIT" \
+            2>&1 | tee "$RUNNER_TEMP/collection-handoff.log"
+      - name: Retain test evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selflearning-collection-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/collection-handoff.log
+          if-no-files-found: error
+          retention-days: 7

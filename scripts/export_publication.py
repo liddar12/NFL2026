@@ -16,7 +16,7 @@ from scripts import export_learning as E, pilot_capture as capture
 from scripts import run_forecast_delivery as forecast
 
 ORIGIN = forecast.ORIGIN
-ENGINE_COMMIT = "5e68953989b95731503d9e909ede7d4279b2a570"
+ENGINE_COMMIT = "0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a"
 POLICY_KIND = "nfl.pool_http_publication.v1"
 # Public pretty-printed bytes are larger than canonical ingestion envelopes.
 # This bound applies only to the independently fetched public pool, not intake.
