@@ -18,13 +18,13 @@ from scripts.build_parlay_ledger import _SPREAD_RE
 from scripts.build_review import direct_leg_grader, parlay_result
 from scripts.learning_receipts import fingerprint, instant
 from scripts.models.parlay_builder import parlay_bet_key
-from scripts.observe_parlay_offers import NAMES, classify_offers
+from scripts.observe_parlay_offers import NAMES, classify_offers, published_bytes
 from scripts.player_outcomes import context, identity_maps
 from scripts.resolve_my_cards import grade_game
 from scripts.resolve_parlay_legs import index_snaps
 
 
-def read_observation(path):
+def read_observation(path, *, checkout=ROOT):
     evidence = json.loads(path.read_bytes())
     body = {key: value for key, value in evidence.items() if key != "observation_id"}
     if (body.get("kind") != "nfl.public_parlay_observation.v1"
@@ -38,6 +38,8 @@ def read_observation(path):
         raw = (path.parent / (digest + ".bin")).read_bytes()
         if sha256(raw).hexdigest() != digest:
             raise ValueError("public_parlay_source_changed")
+        if raw != published_bytes(evidence.get("published_commit"), name, checkout=checkout):
+            raise ValueError("public_parlay_source_does_not_match_git_" + name)
         inputs[name] = json.loads(raw)
     slate, schedule = (inputs[name] for name in NAMES)
     if (classify_offers(slate, schedule, evidence["observed_completed_utc"]) != evidence["cards"]
@@ -219,8 +221,8 @@ def _verified_outcome_rows(bundle, observations):
     )
 
 
-def evaluate(observation_path, outcome_path, *, calibration=False):
-    evidence, slate, schedule = read_observation(observation_path)
+def evaluate(observation_path, outcome_path, *, calibration=False, checkout=ROOT):
+    evidence, slate, schedule = read_observation(observation_path, checkout=checkout)
     bundle = capture.load_capture(outcome_path)
     observed = _verified_outcome_rows(bundle, [(evidence, slate, schedule)])
     results = grade_cards(evidence, slate, schedule, *observed)
@@ -276,11 +278,11 @@ def _first_observed_cohort(observations):
     return first
 
 
-def evaluate_series(observation_paths, outcome_path):
+def evaluate_series(observation_paths, outcome_path, *, checkout=ROOT):
     """Freeze first public observations for one week before loading outcomes."""
     unique = {}
     for path in observation_paths:
-        item = read_observation(path)
+        item = read_observation(path, checkout=checkout)
         unique.setdefault(item[0]["observation_id"], item)
     observations = sorted(unique.values(), key=lambda item: (
         instant(item[0]["observed_completed_utc"]), item[0]["observation_id"]))

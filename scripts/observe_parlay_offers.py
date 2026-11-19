@@ -102,6 +102,19 @@ def classify_offers(slate, schedule, observed_utc):
     return results
 
 
+def published_bytes(commit, name, *, checkout=ROOT):
+    """Read one exact retained publisher input from trusted Git history."""
+    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("invalid_published_commit")
+    if name not in NAMES:
+        raise ValueError("invalid_published_resource")
+    try:
+        return subprocess.check_output(["git", "-C", str(checkout), "show", f"{commit}:data/{name}"],
+                                       stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        raise ValueError("public_parlay_git_commit_unavailable") from None
+
+
 def observe(origin, published_commit, out_dir):
     origin = base_url(origin)
     if not re.fullmatch(r"[0-9a-f]{40}", published_commit):
@@ -112,8 +125,7 @@ def observe(origin, published_commit, out_dir):
     if instant(completed) < instant(started):
         raise ValueError("observation_clock_regressed")
     for name, body in raw.items():
-        git = subprocess.check_output(["git", "-C", str(ROOT), "show", f"{published_commit}:data/{name}"])
-        if body != git:
+        if body != published_bytes(published_commit, name):
             raise ValueError("public_resource_does_not_match_git_" + name)
     objects = {name: sha256(body).hexdigest() for name, body in raw.items()}
     slate, schedule = (json.loads(raw[name]) for name in NAMES)

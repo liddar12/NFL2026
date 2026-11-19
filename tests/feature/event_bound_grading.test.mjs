@@ -152,6 +152,7 @@ test('refresh series keeps the first public terms despite reordering, repricing 
 from hashlib import sha256
 from pathlib import Path
 from runpy import run_path
+from subprocess import check_output
 from tempfile import TemporaryDirectory
 from scripts.grade_observed_parlays import evaluate_series
 from scripts.learning_receipts import fingerprint
@@ -173,20 +174,33 @@ def offer(rank, terms, **value):
 def retain(root, when, offers):
     slate = dict(season=season,week=week,updated_utc=when,parlays=offers)
     hashes = {}
+    checkout = root / 'checkout'
     for name, value in (('parlays.json',slate),('schedule_full.json',schedule)):
         raw = json.dumps(value).encode()
         hashes[name] = sha256(raw).hexdigest()
         (root / (hashes[name] + '.bin')).write_bytes(raw)
+        (checkout / 'data' / name).write_bytes(raw)
+    git(checkout,'add','data')
+    git(checkout,'commit','-qm','fixture publication')
     evidence = dict(version=1,kind='nfl.public_parlay_observation.v1',objects_sha256=hashes,
-                    observed_completed_utc=when,origin='https://fixture.invalid',
+                    observed_completed_utc=when,origin='https://fixture.invalid',published_commit=git(checkout,'rev-parse','HEAD'),
                     season=season,week=week,cards=classify_offers(slate,schedule,when))
     identifier = fingerprint(evidence)
     path = root / (identifier[7:] + '.json')
     path.write_text(json.dumps(dict(evidence,observation_id=identifier)))
     return path
 
+def git(checkout,*args):
+    return check_output(['git','-C',str(checkout),*args],text=True).strip()
+
 with TemporaryDirectory() as folder:
     root = Path(folder)
+    checkout = root / 'checkout'
+    (checkout / 'data').mkdir(parents=True)
+    git(checkout,'init','-q')
+    git(checkout,'config','user.name','Local fixture')
+    git(checkout,'config','user.email','fixture@example.invalid')
+    git(checkout,'config','commit.gpgsign','false')
     first = retain(root,'2026-09-01T17:00:00Z',[
         offer('old-1',[team_leg,stable],joint_model_prob=.6),
         offer('old-2',[loser]),
@@ -199,18 +213,30 @@ with TemporaryDirectory() as folder:
     late = retain(root,'2026-09-02T00:16:00Z',[offer('after-kickoff',[team_leg],joint_model_prob=.8)])
     ambiguous = retain(root,'2026-09-01T17:00:00Z',[offer('tie',[team_leg,stable],joint_model_prob=.7)])
     outcomes = save_capture(fixture['bound_bundle'](),root / 'outcomes')
-    report = evaluate_series([later, late, first, first],outcomes)
-    assert report == evaluate_series([first,late,later],outcomes)
+    report = evaluate_series([later, late, first, first],outcomes,checkout=checkout)
+    assert report == evaluate_series([first,late,later],outcomes,checkout=checkout)
     try:
-        evaluate_series([first,ambiguous],outcomes)
+        evaluate_series([first,ambiguous],outcomes,checkout=checkout)
     except ValueError as exc:
         tie_refusal = str(exc)
     else:
         raise AssertionError('conflicting first probabilities were silently selected')
-    emit(dict(report=report,tie_refusal=tie_refusal))
+    replaced = json.loads(later.read_bytes())
+    replaced.pop('observation_id')
+    replaced['published_commit'] = json.loads(first.read_bytes())['published_commit']
+    forged = root / 'mismatched-publication.json'
+    forged.write_text(json.dumps(dict(replaced,observation_id=fingerprint(replaced))))
+    try:
+        evaluate_series([forged], root/'no-outcomes.json', checkout=checkout)
+    except ValueError as exc:
+        git_refusal = str(exc)
+    else:
+        raise AssertionError('resealed files were accepted for another commit')
+    emit(dict(report=report,tie_refusal=tie_refusal,git_refusal=git_refusal))
 `);
   const { report } = result;
   assert.equal(result.tie_refusal, 'ambiguous_first_card_forecast');
+  assert.equal(result.git_refusal, 'public_parlay_source_does_not_match_git_parlays.json');
   assert.equal(report.superseded_or_repeated_offers, 2);
   assert.equal(report.excluded_unverified_offers, 1);
   assert.equal(report.observation_ids.length, 3);
