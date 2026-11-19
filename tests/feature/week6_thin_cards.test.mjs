@@ -22,6 +22,29 @@ function py(body) {
     env:{...process.env,PYTHONPATH:ROOT},input:SETUP+'\n'+body}).trim().split('\n').pop());
 }
 
+test('a public card is pre-kickoff only when all its game identities and clocks match', () => {
+  const r=py(`
+from scripts.observe_parlay_offers import classify_offers
+def game(gid,home,away):
+    return dict(game_id=gid,home=home,away=away,week=6,status='STATUS_SCHEDULED',
+                kickoff_utc='2026-10-17T20:00:00Z')
+schedule={'season':2026,'games':[game('a','AAA','BBB'),game('b','CCC','DDD')]}
+def ml(team, side='home'):
+    return dict(market='moneyline',selection=f'{team} ML',side=side)
+cards=[dict(parlay_id='valid',scope='week',legs=[ml('AAA'),ml('CCC')]),
+       dict(parlay_id='conflict',scope='week',legs=[ml('AAA','away')]),
+       dict(parlay_id='partial',scope='week',legs=[ml('AAA'),ml('other')]),
+       dict(parlay_id='duplicate',scope='week',legs=[ml('AAA'),ml('BBB','away')])]
+slate=dict(season=2026,week=6,updated_utc='2026-10-17T18:00:00Z',parlays=cards)
+early=classify_offers(slate,schedule,'2026-10-17T19:59:59Z')
+late=classify_offers(slate,schedule,'2026-10-17T20:00:00Z')
+print(json.dumps(dict(early=early,late=late)))
+`);
+  assert.deepEqual(r.early.map(c=>c.reason),[null,'unresolved_leg_game','unresolved_leg_game','duplicate_game_in_week_card']);
+  assert.deepEqual(r.early[0].game_ids,['a','b']);
+  assert.equal(r.late[0].reason,'game_not_open_at_observation');
+});
+
 test('zero-prop games retain first distinct bets and report exact shortfall; normal R126 choices unchanged', () => {
   const r=py(`
 gs=games(3); ps=props(gs)
@@ -32,7 +55,8 @@ market={"probe0":{"spread":{"home_point":-7.5,"home_cover_prob":.5,"away_cover_p
                             "home_selection":"KC -7.5","away_selection":"DEN +7.5"}}}
 spread=doc(gs,{g["game_id"]:[] for g in gs},market)
 for d in (normal,empty,spread): validate_against_schema(d,json.load(open('data/contracts/parlays.schema.json')),'probe')
-print(json.dumps({"normal_unchanged":[c for c in normal['parlays'] if c['scope']=='game']==expected,
+print(json.dumps({"normal_unchanged":[{k:v for k,v in c.items() if k!='offer_lineage'}
+                                     for c in normal['parlays'] if c['scope']=='game']==expected,
  "normal_coverage":normal['candidate_coverage'],"empty":empty,"spread":spread}))
 `);
   assert.equal(r.normal_unchanged,true);

@@ -371,3 +371,23 @@ unknown lineage on older cards. A focused test rebuilt both scopes, changed
 one correlation coefficient, and verified that the frozen card retained
 its original stamp after archive and grading. The cards' original legs,
 prices and ranking were unchanged in the control.
+
+## Verified public card observation
+
+The local observer retrieves the public slate and schedule, requires exact
+matches to the supplied Git commit, and preserves the original bytes and
+HTTP observation clock. A card qualifies only when each leg maps to a
+scheduled event whose kickoff follows the completed observation. An
+identical retry preserves the snapshot's first retained local observation.
+
+```sh
+python3 scripts/observe_parlay_offers.py --origin "$NFL_ORIGIN" \
+  --published-commit "$NFL_PUBLISHED_COMMIT" --out-dir "$NFL_EVIDENCE"
+```
+
+The November 19 capture on main `539059ee` retained 39 Game cards and
+18 Week cards before kickoff. None of those public cards had the new
+producer lineage stamp, which exists only on the local branch. The
+capture establishes retrieval of the published JSON files. Browser-built
+cards and actual views by a specific person are outside this evidence.
+See `code/evidence/nfl-public-card-observation-final-20261119.json`.

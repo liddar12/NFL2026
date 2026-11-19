@@ -864,7 +864,11 @@ function paint(el) {
     leg.market === 'moneyline' || leg.market === 'spread');
   const eligible = upcomingLegs(available || [], state.games || [], now);
   const freshness = el.querySelector('#mp-freshness');
-  if (freshness) freshness.hidden = propsFresh;
+  if (freshness) {
+    freshness.hidden = propsFresh;
+    if (propsFresh) freshness.removeAttribute('role');
+    else freshness.setAttribute('role', 'status');
+  }
   state.live = liveSeedIds(eligible);
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
@@ -1018,7 +1022,7 @@ export default async function mountMyParlays(el) {
       + `<span class="est">ESTIMATE</span></div>`
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
-    + `<div class="state" id="mp-freshness" role="status" hidden>${PROP_INJURY_HOLD}</div>`
+    + `<div class="state" id="mp-freshness" hidden>${PROP_INJURY_HOLD}</div>`
     + '<div id="mp-shared-risk" hidden></div><div id="mp-list" class="card-list"></div>';
   const mpList = el.querySelector('#mp-list');
   if (mpList) mpList.addEventListener('click', onBetTap);
