@@ -1,6 +1,33 @@
 # Workflow reliability and shared learning release roadmap
 
-Revision 4. November 18, 2026, 4:45 p.m. CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+Revision 5. November 19, 2026, 8:44 AM CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+
+## Morning verification — November 19
+
+Main is now `539059eea490e8bcb2a270e5c33839929e25d0bd`: two more commits
+changed 49 data files and no source since `640df164`. Latest
+[Data CI run 44504506061](https://github.com/liddar12/NFL2026/actions/runs/44504506061)
+still fails referee completeness, 124 MY leg occurrences, and the same two IR
+browser tests. The OL-count test now passes on refreshed provider data; the local
+partial-coverage fix still has not shipped. The live 4:17:02 a.m. CST pool retains
+`live_adjustment: null`, `held: no adopted correction`; main's pilot is disabled.
+
+Reconciliation source `53dbfcf1b9ddba7a96033e699c2c80f23978f3ae` includes the
+worker bound and OL fix, then merges the fixed `640df164` data snapshot. A full
+gate is running on that exact commit. Later data commits still need reconciliation
+before release; do not mistake this for current-production acceptance.
+
+The offline semantic audit passed: all 302 receipt/ledger files (37 offer books)
+and 150 FINAL score pairs remain intact; 274,625 leg comparisons have zero
+mismatches. Corrections relative to published main are explicit: nine MY and four
+ATD formerly void cards become pending because their player/game identity cannot
+be verified. Another 57 MY and eight ATD cards have corrected outcome fields.
+Original terms remain unchanged; all settled and pending reductions match the
+immutable offered legs. These are grading corrections, not a model-accuracy gain.
+
+No new source was pushed, deployed or activated. See the readable local report
+`/Users/jliddar/code/reports/github-learning-rca-20261118/report.html` and evidence
+`nfl-release-reconcile-grading-transitions-20261118.json`.
 
 ## Latest incident update — November 18, 4:45 p.m. CST
 
