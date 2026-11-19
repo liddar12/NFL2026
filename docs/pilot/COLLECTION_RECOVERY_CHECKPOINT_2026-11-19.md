@@ -211,3 +211,22 @@ appended two corrected revisions, keeping the forecast and attestation intact.
 The local RPC bridge and in-process ASGI used synthetic provider bytes and
 in-memory private Storage. Hosted scheduling and persistence remain rollout
 checks. Evidence is in `code/evidence/nfl-outcome-pointer-native-20261119.log`.
+
+## Workflow regression follow-up
+
+The first combined gate caught two workflow contract failures. A new cron
+did not appear in the committed schedule inventory. The inline learning
+handoff also followed the final Data CI receipt in gameday, which violated
+the publisher's ordered graph.
+
+The corrected outcome job follows a successful daily refresh from this
+repository's main branch, or an explicit manual dispatch. Its cadence now
+follows fresh daily data. Daily and gameday retain only the opt-in forecast
+stage before the Git publisher. The separate recovery workflow owns the
+publisher handoff and observation after completion, using the upstream
+receipt. Data CI receipt retention is again the final publisher step.
+No generated data or tests for the existing contracts had to change.
+
+The affected checks and exporter acceptance passed 42 tests with the pinned
+engine. The preceding failed gate is retained in
+`code/evidence/nfl-outcome-workflow-full-gate-20261119.log`.

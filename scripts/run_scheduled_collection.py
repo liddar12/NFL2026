@@ -96,15 +96,6 @@ def run(phase, workflow, *, env=os.environ):
                 return report(prepared["status"])
             client = handoff.Client(client_token, attempts=1)
             state = client.send(workspace, *key, ingest_token)
-        elif phase == "after-publish":
-            receipt_path = temp / "published-data.txt"
-            # Even an incomplete upload may leave a recoverable original on
-            # the engine. Keep the publisher receipt bound to this local plan.
-            if not workspace.is_dir():
-                return report("no_original_forecast")
-            local = handoff.preview(workspace, *key)["intent"]
-            client = handoff.Client(env.get(handoff.TOKEN_ENV), attempts=1)
-            state = publish_original(client, key, receipt_path, expected=local["intent_id"], checkout=ROOT)
         else:
             raise ValueError("invalid phase")
         return report(state["state"])
@@ -116,7 +107,7 @@ def run(phase, workflow, *, env=os.environ):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("before-publish", "after-publish", "observe-publication", "recover-published"))
+    parser.add_argument("phase", choices=("before-publish", "observe-publication", "recover-published"))
     parser.add_argument("workflow", choices=sorted(handoff.WORKFLOWS), nargs="?")
     args = parser.parse_args()
     if (args.workflow is None) != (args.phase == "recover-published"):

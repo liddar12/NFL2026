@@ -285,7 +285,7 @@ class HandoffAcceptance(unittest.TestCase):
         with patch.object(H, "Client", side_effect=AssertionError("collection access")) as client:
             with redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(scheduled.run("before-publish", RUN[0], env=env), 0)
-                self.assertEqual(scheduled.run("after-publish", RUN[0], env={
+                self.assertEqual(scheduled.run("before-publish", RUN[0], env={
                     **env, "NFL_SELFLEARN_COLLECTION_MODE": "record", "GITHUB_REF": "refs/heads/other"
                 }), 0)
             client.assert_not_called()

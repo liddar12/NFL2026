@@ -1,8 +1,10 @@
 name: selflearning-outcomes
 
 on:
-  schedule:
-    - cron: '42 12 * * *'
+  workflow_run:
+    workflows: [daily-pipeline]
+    branches: [main]
+    types: [completed]
   workflow_dispatch:
     inputs:
       source_run_id:
@@ -24,7 +26,13 @@ concurrency:
 
 jobs:
   outcomes:
-    if: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' && github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' }}
+    if: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' &&
+      github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.id == github.event.repository.id &&
+        (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'workflow_dispatch'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -35,13 +43,13 @@ jobs:
           persist-credentials: false
 
       - name: Capture raw recent final evidence
-        if: ${{ inputs.source_run_id == '' && inputs.source_run_attempt == '' }}
+        if: ${{ github.event_name == 'workflow_run' || (inputs.source_run_id == '' && inputs.source_run_attempt == '') }}
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
         run: timeout 180s python3 -B scripts/run_scheduled_outcomes.py prepare
 
       - name: Retain the application pointer before delivery
-        if: ${{ inputs.source_run_id == '' && inputs.source_run_attempt == '' }}
+        if: ${{ github.event_name == 'workflow_run' || (inputs.source_run_id == '' && inputs.source_run_attempt == '') }}
         uses: actions/upload-artifact@v4
         with:
           name: selflearning-outcome-${{ github.run_id }}-${{ github.run_attempt }}
@@ -50,14 +58,14 @@ jobs:
           retention-days: 14
 
       - name: Apply the current capture
-        if: ${{ inputs.source_run_id == '' && inputs.source_run_attempt == '' }}
+        if: ${{ github.event_name == 'workflow_run' || (inputs.source_run_id == '' && inputs.source_run_attempt == '') }}
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
           SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
         run: timeout 230s python3 -B scripts/run_scheduled_outcomes.py deliver
 
       - name: Validate original run locator
-        if: ${{ inputs.source_run_id != '' || inputs.source_run_attempt != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.source_run_id != '' || inputs.source_run_attempt != '') }}
         env:
           OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
@@ -65,7 +73,7 @@ jobs:
           [[ "$OUTCOME_SOURCE_RUN_ID" =~ ^[1-9][0-9]{0,18}$ && "$OUTCOME_SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,18}$ ]]
 
       - name: Download only the original application pointer
-        if: ${{ inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
         uses: actions/download-artifact@v4
         with:
           name: selflearning-outcome-${{ inputs.source_run_id }}-${{ inputs.source_run_attempt }}
@@ -75,7 +83,7 @@ jobs:
           run-id: ${{ inputs.source_run_id }}
 
       - name: Resume the registered application
-        if: ${{ inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
           SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}

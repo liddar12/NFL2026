@@ -216,8 +216,6 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   const hits = [];
   const collectionSteps = {
     'before-publish': {timeout: 45, secrets: ['COLLECTION', 'INGEST']},
-    'after-publish': {timeout: 45, secrets: ['COLLECTION']},
-    'observe-publication': {timeout: 35, secrets: ['PUBLICATION_WORKER']},
   };
   const workflowGuard = "        if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' && vars.NFL_SELFLEARN_COLLECTION_MODE == 'record' }}";
   for (const [workflow, publishStep] of [['daily', 'Commit data/'], ['gameday', 'Commit snapshots + data']]) {
@@ -229,8 +227,7 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
     const commit = classified.indexOf('      - name: ' + publishStep);
     const receipt = classified.indexOf('      - name: Retain exact published commit for Data CI');
     assert.ok(classified.indexOf('before-publish') < commit && commit < receipt);
-    assert.ok(receipt < classified.indexOf('after-publish') &&
-      classified.indexOf('after-publish') < classified.indexOf('observe-publication'));
+    assert.equal(receipt, classified.length - 1);
     for (const [phase, options] of Object.entries(collectionSteps)) {
       assert.equal(classified.filter(item => item === phase).length, 1);
       const step = steps[classified.indexOf(phase)].trimEnd().split('\n');
@@ -262,7 +259,11 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
     ['SELFLEARN_NFL_COLLECTION_TOKEN', 'SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN']);
   const outcomesPath = join('.github', 'workflows', 'selflearning-outcomes.yml');
   const outcomes = readFileSync(join(ROOT, outcomesPath), 'utf8');
-  assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' && github.repository == 'liddar12\/NFL2026' && github.ref == 'refs\/heads\/main'/);
+  assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_MODE == 'record'/);
+  assert.match(outcomes, /github.repository == 'liddar12\/NFL2026' && github.ref == 'refs\/heads\/main'/);
+  assert.match(outcomes, /workflows: \[daily-pipeline\]/);
+  assert.match(outcomes, /github.event.workflow_run.conclusion == 'success'/);
+  assert.match(outcomes, /github.event.workflow_run.head_repository.id == github.event.repository.id/);
   assert.match(outcomes, /^permissions:\n  actions: read\n  contents: read$/m);
   assert.match(outcomes, /path: \$\{\{ runner.temp \}\}\/selflearning-outcomes\/pointer.json\n/);
   assert.ok(outcomes.indexOf('Retain the application pointer before delivery') < outcomes.indexOf('Apply the current capture'));
