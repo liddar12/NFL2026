@@ -260,21 +260,30 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   ]);
   assert.deepEqual([...retry.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
     ['SELFLEARN_NFL_COLLECTION_TOKEN', 'SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN']);
+  const outcomesPath = join('.github', 'workflows', 'selflearning-outcomes.yml');
+  const outcomes = readFileSync(join(ROOT, outcomesPath), 'utf8');
+  assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' && github.repository == 'liddar12\/NFL2026' && github.ref == 'refs\/heads\/main'/);
+  assert.match(outcomes, /^permissions:\n  actions: read\n  contents: read$/m);
+  assert.match(outcomes, /path: \$\{\{ runner.temp \}\}\/selflearning-outcomes\/pointer.json\n/);
+  assert.ok(outcomes.indexOf('Retain the application pointer before delivery') < outcomes.indexOf('Apply the current capture'));
+  assert.deepEqual([...outcomes.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
+    ['SELFLEARN_NFL_OUTCOME_INGEST_TOKEN', 'SELFLEARN_NFL_OUTCOME_INGEST_TOKEN']);
+  assert.doesNotMatch(outcomes.split('      - name: Retain the application pointer')[0], /secrets\./);
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
     'run_parlay_feedback.py', 'learning_history_guard.py',
     'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
     'export_outcome_capture.py', 'export_capture_application.py',
-    'run_collection_handoff.py', 'run_scheduled_collection.py',
+    'run_collection_handoff.py', 'run_scheduled_collection.py', 'run_scheduled_outcomes.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection|run_scheduled_outcomes/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (offline.has(rel) || rel === retryPath || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
+      if (offline.has(rel) || rel === retryPath || rel === outcomesPath || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
       let src = readFileSync(join(ROOT, rel), 'utf8');
       if (['daily.yml', 'gameday.yml'].some(file => rel === join('.github', 'workflows', file))) {
         src = src.split(/(?=^      - name: )/m)

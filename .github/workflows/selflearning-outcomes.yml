@@ -1,0 +1,84 @@
+name: selflearning-outcomes
+
+on:
+  schedule:
+    - cron: '42 12 * * *'
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Run ID of an existing outcome application to recover
+        required: false
+        type: string
+      source_run_attempt:
+        description: Attempt that retained the application pointer
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: selflearning-outcomes
+  cancel-in-progress: false
+
+jobs:
+  outcomes:
+    if: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' && github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Capture raw recent final evidence
+        if: ${{ inputs.source_run_id == '' && inputs.source_run_attempt == '' }}
+        env:
+          NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+        run: timeout 180s python3 -B scripts/run_scheduled_outcomes.py prepare
+
+      - name: Retain the application pointer before delivery
+        if: ${{ inputs.source_run_id == '' && inputs.source_run_attempt == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: selflearning-outcome-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/selflearning-outcomes/pointer.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Apply the current capture
+        if: ${{ inputs.source_run_id == '' && inputs.source_run_attempt == '' }}
+        env:
+          NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
+        run: timeout 230s python3 -B scripts/run_scheduled_outcomes.py deliver
+
+      - name: Validate original run locator
+        if: ${{ inputs.source_run_id != '' || inputs.source_run_attempt != '' }}
+        env:
+          OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          [[ "$OUTCOME_SOURCE_RUN_ID" =~ ^[1-9][0-9]{0,18}$ && "$OUTCOME_SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,18}$ ]]
+
+      - name: Download only the original application pointer
+        if: ${{ inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: selflearning-outcome-${{ inputs.source_run_id }}-${{ inputs.source_run_attempt }}
+          path: ${{ runner.temp }}/selflearning-outcome-pointer
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Resume the registered application
+        if: ${{ inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
+        env:
+          NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
+          OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: timeout 200s python3 -B scripts/run_scheduled_outcomes.py recover

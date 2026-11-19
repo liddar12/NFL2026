@@ -207,6 +207,38 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(r.roster_staged, 1);
 });
 
+test('fresh runner resumes the registered outcome from IDs and rejects a mismatched request', () => {
+  const r = py(`
+import shutil
+from scripts import run_scheduled_outcomes as scheduled
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);p,_,path=fixture(root,include_roster=True);s=Server()
+ first=send(p,root/'out',s,max_steps=1)
+ assert first['status']=='pending'
+ pointer=scheduled.capture_pointer(p, '101', '2')
+ assert set(pointer)=={'version','application_id','request_id','run_id','run_attempt'}
+ shutil.rmtree(root/'out');shutil.rmtree(path.parent.parent)
+ aid=pointer['application_id'];rid=pointer['request_id'];n=len(s.calls)
+ wrong=error(lambda:A.resume_registered(aid,ex.fingerprint('different request'),TOKEN,transport=s))
+ assert all(m=='GET' for m,_,_ in s.calls[n:])
+ n=len(s.calls);s.lose_step=True
+ final=A.resume_registered(aid,rid,TOKEN,transport=s,sleep=lambda _:None)
+ changes=[(m,path) for m,path,_ in s.calls[n:] if m=='POST'];n=len(s.calls)
+ replay=A.resume_registered(aid,rid,TOKEN,transport=s)
+ missing=error(lambda:A.resume_registered(aid,rid,TOKEN,transport=Server()))
+ schedule={'season':2026,'games':[{'status':'STATUS_FINAL','week':6,'kickoff_utc':'2026-09-02T00:00:00Z'},
+  {'status':'STATUS_SCHEDULED','week':7,'kickoff_utc':'2026-09-03T00:00:00Z'},
+  {'status':'STATUS_FINAL','week':1,'kickoff_utc':'2026-08-01T00:00:00Z'}]}
+ period=scheduled.recent_period(schedule,C._instant('2026-09-05T00:00:00Z'))
+ print(json.dumps({'wrong':wrong,'final':final['complete_success'],'same':final==replay,'writes':changes,
+  'replay_read_only':all(m=='GET' for m,_,_ in s.calls[n:]),'missing':missing,'period':period}))
+`);
+  assert.equal(r.wrong, true); assert.equal(r.final, true); assert.equal(r.same, true);
+  assert.equal(r.writes.length, 1); assert.match(r.writes[0][1], /\/steps\//);
+  assert.equal(r.replay_read_only, true); assert.equal(r.missing, true);
+  assert.deepEqual(r.period, [2026, [6]]);
+});
+
 test('v2 metadata rejects resealed roster members outside the ordered capture plan', () => {
   const r = py(`
 with tempfile.TemporaryDirectory() as tmp:

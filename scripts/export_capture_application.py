@@ -556,7 +556,7 @@ def exchange(transport, method, path, body, attempts, sleep, check, missing=Fals
         check();sleep(min(.5 * 2 ** attempt, 2))
 
 
-def read_application(request, transport, attempts, sleep, check):
+def read_application(request, transport, attempts, sleep, check, *, request_id=None):
     aid = request["application_id"];fence, meta, output, size = None, None, {}, 0
     for view in ("registration", "groups", "batches", "status", "terminal"):
         after, rows, total = None, [], None
@@ -595,7 +595,67 @@ def read_application(request, transport, attempts, sleep, check):
         "registration": header["registration"], "groups": output["groups"], "batches": output["batches"], "status": output["status"][0],
         "terminal": output["terminal"][0] if output["terminal"] else None, "ledger_watermark": fence}
     need(result["registration"]["registration_id"] == meta[1] and result["seal"]["seal_id"] == meta[2])
+    if request_id is not None:
+        request = result["request"]
+        need(request["application_id"] == aid and ex.fingerprint(request) == request_id)
+        original = request["capture_request"]
+        metadata(original, ORIGIN)
+        same(request, request_for(original))
     return report_valid(result, request)
+
+
+def terminal_result(report):
+    request = report["request"]
+    terminal = report["terminal"]
+    return {"version": 2, "status": "terminal_original", "application_id": request["application_id"], "scope": "application_group_results",
+        "result": terminal, "durable_result_ack": True, "processing_complete": terminal["processing_complete"],
+        "complete_success": terminal["complete_success"], "learning_accepted": terminal["learning_accepted"], "current_membership_reverified": False,
+        "source_authentication": "not_performed"}
+
+
+def post_original(path, body, validator, *, channel, attempts, sleep, check, fetch):
+    for attempt in range(attempts):
+        try:
+            response = exchange(channel, "POST", path, body, 1, sleep, check)
+            claimed = validator(response)
+            break
+        except ApplicationExportError as error:
+            if str(error) not in {"application_transport_exhausted", "application_http_exhausted", "application_http_refused"}:
+                raise
+            # Never choose a new step after a lost reply. Complete GET
+            # verifies the original exact command before another POST.
+            original = fetch()
+            if original is not None and (path == BASE or any(row["result"] is not None and path.endswith("/" + urllib.parse.quote(row["assignment"]["step_id"], safe="")) for row in original["batches"]) or original["terminal"] is not None):
+                return original
+            if attempt + 1 == attempts or str(error) == "application_http_refused":
+                raise
+    original = fetch();need(original is not None)
+    actual = original["registration"] if path == BASE else next((row["result"] for row in original["batches"] if path.endswith("/" + urllib.parse.quote(row["assignment"]["step_id"], safe=""))), None)
+    same(claimed, actual)
+    return original
+
+
+def advance_application(report, max_steps, *, channel, attempts, sleep, check, fetch, save):
+    request = report["request"]
+    for _ in range(max_steps):
+        if report["terminal"] is not None:
+            return terminal_result(report)
+        check();sid = report["status"]["next_step_id"];O._hash(sid)
+        path = BASE + "/" + urllib.parse.quote(request["application_id"], safe="") + "/steps/" + urllib.parse.quote(sid, safe="")
+        save("steps/" + sid[7:] + "/command.json", {"version": 2, "application_id": request["application_id"], "step_id": sid, "body": {}})
+        current = report
+        def stepped(wrapper):
+            keys(wrapper, {"version", "result", "scope"})
+            need(type(wrapper["version"]) is int and wrapper["version"] == 2 and wrapper["scope"] == "batch_only")
+            batch_valid(wrapper["result"], current["seal"]);need(wrapper["result"]["step_id"] == sid)
+            return wrapper["result"]
+        report = post_original(path, b"{}", stepped, channel=channel, attempts=attempts,
+                               sleep=sleep, check=check, fetch=fetch)
+    if report["terminal"] is not None:
+        # A final allowed step may terminalize; return the immutable result
+        # without requiring an extra invocation or additional POST.
+        return terminal_result(report)
+    raise ApplicationExportError("application_pending_step_limit")
 
 
 def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max_run_seconds=240, sleep=time.sleep, monotonic=time.monotonic):
@@ -626,32 +686,6 @@ def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max
             if report["terminal"] is not None:
                 save("terminal/original.json", report["terminal"])
         return report
-    def terminal_result(report):
-        terminal = report["terminal"]
-        return {"version": 2, "status": "terminal_original", "application_id": request["application_id"], "scope": "application_group_results",
-            "result": terminal, "durable_result_ack": True, "processing_complete": terminal["processing_complete"],
-            "complete_success": terminal["complete_success"], "learning_accepted": terminal["learning_accepted"], "current_membership_reverified": False,
-            "source_authentication": "not_performed"}
-    def post_original(path, body, validator):
-        for attempt in range(attempts):
-            try:
-                response = exchange(channel, "POST", path, body, 1, sleep, check)
-                claimed = validator(response)
-                break
-            except ApplicationExportError as error:
-                if str(error) not in {"application_transport_exhausted", "application_http_exhausted", "application_http_refused"}:
-                    raise
-                # Never choose a new step after a lost reply. Complete GET
-                # verifies the original exact command before another POST.
-                original = fetch()
-                if original is not None and (path == BASE or any(row["result"] is not None and path.endswith("/" + urllib.parse.quote(row["assignment"]["step_id"], safe="")) for row in original["batches"]) or original["terminal"] is not None):
-                    return original
-                if attempt + 1 == attempts or str(error) == "application_http_refused":
-                    raise
-        original = fetch();need(original is not None)
-        actual = original["registration"] if path == BASE else next((row["result"] for row in original["batches"] if path.endswith("/" + urllib.parse.quote(row["assignment"]["step_id"], safe=""))), None)
-        same(claimed, actual)
-        return original
     try:
         channel = ex._credential_guarded_transport(transport or http_transport(
             value["capture_plan"]["destination"], token, deadline=end, monotonic=monotonic), (token,))
@@ -674,30 +708,40 @@ def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max
                 need(wrapper["registration"]["application_id"] == request["application_id"] and wrapper["registration"]["request_id"] == ex.fingerprint(request))
                 hashed(wrapper["registration"], "registration_id")
                 return wrapper["registration"]
-            report = post_original(BASE, O._body(request), registered)
-        for _ in range(max_steps):
-            if report["terminal"] is not None:
-                return terminal_result(report)
-            check();sid = report["status"]["next_step_id"];O._hash(sid)
-            path = BASE + "/" + urllib.parse.quote(request["application_id"], safe="") + "/steps/" + urllib.parse.quote(sid, safe="")
-            save("steps/" + sid[7:] + "/command.json", {"version": 2, "application_id": request["application_id"], "step_id": sid, "body": {}})
-            current = report
-            def stepped(wrapper):
-                keys(wrapper, {"version", "result", "scope"})
-                need(type(wrapper["version"]) is int and wrapper["version"] == 2 and wrapper["scope"] == "batch_only")
-                batch_valid(wrapper["result"], current["seal"]);need(wrapper["result"]["step_id"] == sid)
-                return wrapper["result"]
-            report = post_original(path, b"{}", stepped)
-        if report["terminal"] is not None:
-            # A final allowed step may terminalize; return the immutable result
-            # without requiring an extra invocation or additional POST.
-            return terminal_result(report)
-        raise ApplicationExportError("application_pending_step_limit")
+            report = post_original(BASE, O._body(request), registered, channel=channel,
+                                   attempts=attempts, sleep=sleep, check=check, fetch=fetch)
+        return advance_application(report, max_steps, channel=channel, attempts=attempts,
+                                   sleep=sleep, check=check, fetch=fetch, save=save)
     except Exception as error:
         reason = "application_pending_budget" if type(error) is ApplicationBudgetExceeded else str(error) if type(error) is ApplicationExportError and str(error) in SAFE else "application_protocol_refused"
         save("failures/" + ex.fingerprint(reason)[7:] + ".json", {"version": 2, "reason": reason})
         return {"version": 2, "status": "pending", "application_id": request["application_id"], "scope": "progress_only",
                 "learning_accepted": False, "complete_success": False, "reason": reason}
+
+
+def resume_registered(application_id, request_id, token, *, transport=None, attempts=3, max_steps=16,
+                      max_run_seconds=180, sleep=time.sleep, monotonic=time.monotonic):
+    """Resume only the original server registration using its immutable IDs."""
+    O._hash(application_id)
+    O._hash(request_id)
+    need(type(token) is str and 32 <= len(token) <= 8192 and all(0x21 <= ord(c) <= 0x7e for c in token))
+    integer(attempts, 1, 5)
+    integer(max_steps, 1, MAX_GROUPS)
+    need(type(max_run_seconds) in (int, float) and 0 < max_run_seconds <= 300)
+    deadline = monotonic() + max_run_seconds
+    channel = ex._credential_guarded_transport(transport or http_transport(
+        ORIGIN, token, deadline=deadline, monotonic=monotonic), (token,))
+    def check():
+        if monotonic() >= deadline:
+            raise ApplicationBudgetExceeded("application_pending_budget")
+    def fetch():
+        return read_application({"application_id": application_id}, channel, attempts, sleep, check,
+                                request_id=request_id)
+    report = fetch()
+    if report is None:
+        raise ApplicationExportError("application_original_registration_missing")
+    return advance_application(report, max_steps, channel=channel, attempts=attempts, sleep=sleep,
+                               check=check, fetch=fetch, save=lambda *_: None)
 
 
 def resume(out_dir, application_id, destination, token, **kwargs):
