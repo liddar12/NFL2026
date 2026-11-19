@@ -20,7 +20,8 @@ jobs:
     timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      EXPECTED_ENGINE_COMMIT: 17c6644537d78628442ef6adf25203756dfcc368
+      # The engine runtime matches production. This checkout also has the hosted SQL optimizations.
+      EXPECTED_ENGINE_COMMIT: 6643d2c8ceaae626e337a14253c0c9e41d561de4
     steps:
       - name: Checkout exact NFL test tree
         uses: actions/checkout@v4
@@ -32,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: liddar12/SelfLearning
-          ref: 17c6644537d78628442ef6adf25203756dfcc368
+          ref: 6643d2c8ceaae626e337a14253c0c9e41d561de4
           path: selflearning
           persist-credentials: false
       - name: Setup hosted test Python
