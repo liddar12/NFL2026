@@ -36,6 +36,7 @@ COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 RUN_ROUTE = re.compile(re.escape(BASE) + r"/(?:daily|gameday)\.yml/[1-9][0-9]{0,18}/[1-9][0-9]{0,18}(?:/(?:publisher|recover|publication))?\Z")
 PENDING_ROUTE = re.compile(re.escape(BASE) + r"/pending\?limit=(?:[1-9]|[1-4][0-9]|50)(?:&after=sha256%3A[0-9a-f]{64})?\Z")
 STAMP = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?(?:Z|[+-](?:0[0-9]|1[0-5]):[0-5][0-9])\Z")
+MINUTE_KICKOFF = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2})(Z|[+-](?:0[0-9]|1[0-5]):[0-5][0-9])\Z")
 SOURCES = {"leg_pool", "schedule", "parlay_calibration"}
 LOCATOR = {"workflow", "run_id", "run_attempt"}
 INTENT = {"version", *LOCATOR, "generation_object_id", "generation_id", "recorded_utc",
@@ -77,6 +78,12 @@ def clock(value):
     return stamp
 
 
+def schedule_stamp(value):
+    """Adapt the provider's minute precision to the second-precision protocol."""
+    match = MINUTE_KICKOFF.fullmatch(value) if type(value) is str else None
+    return f"{match[1]}:00{match[2]}" if match else value
+
+
 def intent_record(request, repository):
     fields(request, INTENT, versioned=True)
     need(type(repository) is str and REPO_NAME.fullmatch(repository))
@@ -97,7 +104,7 @@ def original(workspace, workflow, run_id, run_attempt):
     plan = export.plan(export._delivery_path(root, "snapshots"))
     entry, generation = forecast._generation(plan)
     envelope = entry["request"]
-    latest = max((item["kickoff_utc"] for item in envelope["payload"]["receipts"]), key=clock)
+    latest = max((schedule_stamp(item["kickoff_utc"]) for item in envelope["payload"]["receipts"]), key=clock)
     request = {"version": 1, "workflow": workflow, "run_id": run_id, "run_attempt": run_attempt,
                "generation_object_id": envelope["object_id"], "generation_id": generation["generation_id"],
                "recorded_utc": generation["recorded_utc"], "latest_kickoff_utc": latest,

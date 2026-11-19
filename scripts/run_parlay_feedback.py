@@ -26,7 +26,7 @@ if str(ROOT)not in sys.path:sys.path.insert(0,str(ROOT))
 from scripts import export_learning as export, capture_outcome_evidence as capture  # noqa: E402
 from scripts.learning_history_guard import _git  # noqa: E402
 
-ENGINE_COMMIT="17c6644537d78628442ef6adf25203756dfcc368"
+ENGINE_COMMIT="b029b20a5305c6804514ec40a3be4ea09e72fb98"
 # Read-only compatibility after a pin upgrade. These fingerprints were computed
 # by selflearn_core.learning_jobs.code_identity() through engine() on the clean
 # pinned checkout. The digest includes Python sources, interpreter build, machine

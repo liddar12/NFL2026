@@ -19,7 +19,7 @@ import tempfile
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
-ENGINE_COMMIT = '17c6644537d78628442ef6adf25203756dfcc368'
+ENGINE_COMMIT = 'b029b20a5305c6804514ec40a3be4ea09e72fb98'
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 CLI_TIMEOUT_SECONDS = 330
 MAX_OUTPUT_BYTES = 1024 * 1024

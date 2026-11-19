@@ -234,7 +234,7 @@ print(json.dumps({"ok": ok,
   "short_sha": refused({**base, "engine_commit": "aacb19c7"})}))`);
   assert.equal(r.ok.enabled, '0');
   assert.equal(r.ok.serving_mode, 'shadow');
-  assert.equal(r.ok.engine_commit, '17c6644537d78628442ef6adf25203756dfcc368');
+  assert.equal(r.ok.engine_commit, 'b029b20a5305c6804514ec40a3be4ea09e72fb98');
   assert.equal(r.ok.freshness_profile, 'confirmed_inactives_v1');
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });

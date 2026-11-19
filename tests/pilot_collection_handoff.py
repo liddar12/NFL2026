@@ -51,11 +51,11 @@ class HandoffAcceptance(unittest.TestCase):
         source = self.base / "source"
         source.mkdir()
         now = datetime.now(timezone.utc)
-        self.kickoff = now + timedelta(hours=1)
+        self.kickoff = (now + timedelta(hours=1)).replace(second=0, microsecond=0)
         created, self.recorded = stamp(now - timedelta(minutes=2)), stamp(now - timedelta(minutes=1))
         fixture = runpy.run_path(str(ROOT / "tests" / "fixtures" / "week6_outcomes.py"))
         builder = fixture["generation"]
-        with patch.dict(builder.__globals__, {"KICKOFF": stamp(self.kickoff)}):
+        with patch.dict(builder.__globals__, {"KICKOFF": self.kickoff.isoformat(timespec="minutes").replace("+00:00", "Z")}):
             _, self.pool, schedule = builder(self.base / "fixture", created=created)
         for name, value in (("leg_pool", self.pool), ("schedule_full", schedule), ("parlay_backtest", None)):
             (source / (name + ".json")).write_bytes(E.encoded(value))

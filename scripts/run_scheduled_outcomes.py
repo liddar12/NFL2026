@@ -29,7 +29,7 @@ def recent_period(schedule, now):
         week, kickoff = game.get("week"), game.get("kickoff_utc")
         if game.get("status") != "STATUS_FINAL" or type(week) is not int or not 1 <= week <= 18:
             continue
-        if oldest <= handoff.clock(kickoff) < now:
+        if oldest <= handoff.clock(handoff.schedule_stamp(kickoff)) < now:
             weeks.add(week)
     return season, sorted(weeks)
 
