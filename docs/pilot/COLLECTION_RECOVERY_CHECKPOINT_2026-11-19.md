@@ -114,3 +114,24 @@ after workspace deletion, one worker observation of synthetic public bytes
 and replay of the existing proof. Seventy-two focused pin and history checks
 also passed. This checkpoint covers the path through publication. Outcome
 application and scheduled collection still need combined acceptance.
+
+## Native forecast-to-outcome rehearsal
+
+A disposable loopback PostgreSQL 17 cluster applied all 13 migrations from
+engine `d40b9f0`. NFL source `eca0c9d5` sent two original receipts, recorded the
+exact Git publisher receipt, and queued the independent worker. The worker
+observed the synthetic pool once. After kickoff the v2 sender applied raw
+scoreboard, statistics, participation and roster fixtures to the same database.
+
+The sender recovered the stored result after a lost batch reply. Replay
+preserved the journal snapshot, and a later corrected capture appended two
+superseding revisions. The original forecasts and publication proof stayed
+byte-equivalent. The first two runs caught fixture timestamps ahead of the
+database clock. The passing run waited for the manifest completion time and
+kept all production clock checks in place.
+
+The rehearsal used in-process ASGI, a local RPC bridge, synthetic provider bytes
+and in-memory private Storage. It finished with exit 0 and removed the database
+cluster. Local reproduction and output are in
+`code/evidence/nfl-full-cycle-20261119.{sh,py,log}`. Scheduled workflow
+collection, hosted Storage and prospective accuracy still require verification.
