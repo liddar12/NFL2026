@@ -796,11 +796,14 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
     # definition, imported from the archive writer rather than re-hashed here, so
     # the row and the archived card meet on the same key; an archive card already
     # stamped keeps its own id.
-    return {"parlay_id": parlay.get("parlay_id"),
+    out = {"parlay_id": parlay.get("parlay_id"),
             "card_id": parlay.get("card_id") or parlay_card_id(parlay),
             "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
             "result": pres, "bucket": bucket, "legs": legs_out}
+    if "offer_lineage" in parlay:
+        out["offer_lineage"] = parlay["offer_lineage"]
+    return out
 
 
 def fully_excluded(row, excluded):

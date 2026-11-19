@@ -355,3 +355,19 @@ of 4:15:59 p.m. CST on November 19, using the source's actual timestamp and
 the existing 12-hour policy. Clock-controlled browser checks crossed expiry
 on both Game and MY. This expiry is distinct from the still-shadow-only
 T-90 official inactive confirmation.
+
+## Published Game and Week card lineage
+
+New published Game and Week cards carry the generation clock, a selection
+policy fingerprint, and a joint-model fingerprint. Game pricing includes
+the effective same-side and opposing-side correlation table and its default
+in the fingerprint. Week moneylines retain their independence rule. The
+metadata follows the card into the archive and its review row. Its presence
+identifies the generation and supplies no independent publication timestamp.
+
+The gate rejects a partially stamped live generation or mismatched scope
+metadata. Existing archived cards keep their original fields, including
+unknown lineage on older cards. A focused test rebuilt both scopes, changed
+one correlation coefficient, and verified that the frozen card retained
+its original stamp after archive and grading. The cards' original legs,
+prices and ranking were unchanged in the control.

@@ -42,6 +42,17 @@
           "correlation_note"
         ],
         "properties": {
+          "offer_lineage": {
+            "type": "object", "additionalProperties": false,
+            "description": "Producer versions for this exact generated card, preserved on freeze. Legacy cards omit it.",
+            "required": ["version", "generated_utc", "selection_policy_version", "joint_model_version"],
+            "properties": {
+              "version": {"type": "integer", "enum": [1]},
+              "generated_utc": {"type": "string", "minLength": 1},
+              "selection_policy_version": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "joint_model_version": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+            }
+          },
           "parlay_id": {
             "type": "string",
             "description": "Stable parlay identifier, UNIQUE within a week's cards. It carries the card's RANK, so a rebuild can hand the same rank to a different bet - G03: an incoming card whose parlay_id already belongs to a frozen card is renamed <parlay_id>~<first 6 of card_id> (stable, so a re-run is byte-identical), and frozen cards are never touched. card_id is the identity and is what the consumers now join on (scripts/build_review.py, app/review.js), with parlay_id the fallback for a pre-R90 archive."
