@@ -221,6 +221,53 @@ with TemporaryDirectory() as folder:
   assert.equal(report.calibration.total.exclusions.missing_recorded_joint_probability, 1);
 });
 
+test('observer waits for the exact publisher bytes and reuses the first successful capture', () => {
+  const result = py(`
+from pathlib import Path
+from subprocess import check_output
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+from scripts import observe_parlay_offers as O
+
+commit = check_output(['git','rev-parse','HEAD'],text=True).strip()
+public = {name:check_output(['git','show',f'{commit}:data/{name}']) for name in O.NAMES}
+responses, pauses = [], []
+
+def get(_, name):
+    responses.append(name)
+    return b'{}' if len(responses) == 1 else public[name]
+
+with TemporaryDirectory() as folder:
+    root = Path(folder)
+    receipt = root / 'published-data.txt'
+    receipt.write_text(f'84 2 {commit}\\n')
+    with patch.object(O,'_get_json',side_effect=get), patch.object(O,'_now',return_value='2099-01-01T00:00:00Z'):
+        try:
+            O.observe_after_publisher('https://fixture.invalid',receipt,'84','1',root / 'observed',
+                                      sleep=pauses.append)
+        except ValueError as exc:
+            refusal = str(exc)
+        else:
+            raise AssertionError('receipt was accepted for the wrong attempt')
+        assert not responses
+        first = O.observe_after_publisher('https://fixture.invalid',receipt,'84','2',root / 'observed',
+                                          sleep=pauses.append)
+        second = O.observe_after_publisher('https://fixture.invalid',receipt,'84','2',root / 'observed',
+                                           sleep=pauses.append)
+        receipt.write_text('84 2 noop\\n')
+        noop = O.observe_after_publisher('https://fixture.invalid',receipt,'84','2',root / 'observed',
+                                         sleep=pauses.append)
+    emit(dict(refusal=refusal,pauses=pauses,requests=len(responses),first=first['observation_id'],
+              second=second['observation_id'],replayed=second['replayed'],noop=noop['status']))
+`);
+  assert.equal(result.refusal, 'queue_publisher_receipt_invalid');
+  assert.deepEqual(result.pauses, [10]);
+  assert.equal(result.requests, 6);
+  assert.equal(result.first, result.second);
+  assert.equal(result.replayed, true);
+  assert.equal(result.noop, 'publisher_no_new_commit');
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]

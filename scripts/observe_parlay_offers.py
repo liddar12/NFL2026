@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 from urllib.request import Request, ProxyHandler, build_opener
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,7 @@ from scripts.build_parlay_archive import card_id
 from scripts.capture_outcome_evidence import _immutable
 from scripts.export_learning import base_url, _NoRedirect
 from scripts.learning_receipts import fingerprint, instant
+from scripts.queue_publication import publisher_commit
 
 NAMES = ("parlays.json", "schedule_full.json")
 MAX_BYTES = 3 * 1024 * 1024
@@ -146,14 +148,50 @@ def observe(origin, published_commit, out_dir):
         os.close(descriptor)
 
 
+def observe_after_publisher(origin, receipt_path, run_id, run_attempt, out_dir, *, sleep=time.sleep):
+    """Wait briefly for the proven commit's public bytes, using the live observation clock."""
+    commit = publisher_commit(receipt_path, run_id, run_attempt)
+    if commit == "noop":
+        return {"status": "publisher_no_new_commit", "run_id": run_id, "run_attempt": run_attempt}
+    subprocess.run(["git", "-C", str(ROOT), "merge-base", "--is-ancestor", commit, "HEAD"],
+                   check=True, capture_output=True)
+    for pause in (0, 10, 20, 30):
+        if pause:
+            sleep(pause)
+        try:
+            result = observe(origin, commit, out_dir)
+            return {**result, "publisher_run_id": run_id, "publisher_run_attempt": run_attempt}
+        except ValueError as exc:
+            # A concurrent or not-yet-deployed publication must never attach the
+            # body to this run. Re-read both files and recheck both Git blobs.
+            if not str(exc).startswith("public_resource_does_not_match_git_"):
+                raise
+            if pause == 30:
+                raise
+        except OSError:
+            if pause == 30:
+                raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origin", required=True)
-    parser.add_argument("--published-commit", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--published-commit")
+    source.add_argument("--publisher-receipt", type=Path)
+    parser.add_argument("--run-id")
+    parser.add_argument("--run-attempt")
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
     try:
-        print(json.dumps(observe(args.origin, args.published_commit, args.out_dir), indent=2))
+        if args.publisher_receipt is not None:
+            result = observe_after_publisher(args.origin, args.publisher_receipt, args.run_id,
+                                             args.run_attempt, args.out_dir)
+        else:
+            if args.run_id is not None or args.run_attempt is not None:
+                raise ValueError("publisher_run_identity_requires_receipt")
+            result = observe(args.origin, args.published_commit, args.out_dir)
+        print(json.dumps(result, indent=2))
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
         parser.exit(1, f"parlay observation refused: {exc}\n")
 

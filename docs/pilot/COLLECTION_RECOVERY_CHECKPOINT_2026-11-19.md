@@ -410,3 +410,23 @@ content-addressed, so retries retain the same result and new evidence
 can produce a distinct report. The Week 11 pregame check produced 39
 Game and 18 Week pending cards, with no verified finals. This command
 does not publish grades, compute payouts or change recommendations.
+
+## Retaining published parlay cards after refreshes
+
+The local `public-parlay-observation` workflow starts after a successful daily
+or gameday publisher run when `NFL_PUBLIC_PARLAY_OBSERVATION_MODE=record`.
+It requires the receipt for that exact run and attempt. The observer checks
+that the receipt's commit is in the checked-out main history. It retains a
+manifest only after the public slate and schedule both match the Git bytes.
+A no-op publisher produces a status file. A deployment that never matches
+within the retry window fails the recorder and leaves no successful manifest.
+The recorder has read-only repository access and uses no SelfLearning tokens.
+
+The Actions artifact carries the upstream and observer run identities and is
+requested to expire after 90 days. Download the manifest and its adjacent
+`.bin` files before that expiry to keep the evidence for a later replay. Pass
+each retained manifest as a separate `--observation` to
+`scripts/grade_observed_parlays.py --first-observed`, together with a verified
+outcome capture. The replay keeps the earliest verified offer per contract,
+including forecasts with missing probabilities or unresolved grades. GitHub
+execution and artifact availability still need verification after release.

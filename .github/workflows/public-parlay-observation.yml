@@ -1,0 +1,65 @@
+name: public-parlay-observation
+
+on:
+  workflow_run:
+    workflows: [daily-pipeline, gameday]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: public-parlay-observation-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  record:
+    if: ${{ vars.NFL_PUBLIC_PARLAY_OBSERVATION_MODE == 'record' &&
+      github.repository == 'liddar12/NFL2026' &&
+      github.ref == 'refs/heads/main' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.id == github.event.repository.id &&
+      (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout the trusted observer and published history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download this publisher attempt's receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: published-data-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: ${{ runner.temp }}/parlay-publisher
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Record public bytes only when they match the publisher commit
+        env:
+          PUBLISHER_RUN_ID: ${{ github.event.workflow_run.id }}
+          PUBLISHER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          directory="$RUNNER_TEMP/public-parlay-observation"
+          mkdir -m 700 "$directory"
+          timeout 170s python3 -B scripts/observe_parlay_offers.py \
+            --origin https://nfl2026.netlify.app \
+            --publisher-receipt "$RUNNER_TEMP/parlay-publisher/published-data.txt" \
+            --run-id "$PUBLISHER_RUN_ID" --run-attempt "$PUBLISHER_RUN_ATTEMPT" \
+            --out-dir "$directory" | tee "$directory/observation-result.json"
+
+      - name: Retain observation bytes and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-parlays-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/public-parlay-observation
+          if-no-files-found: error
+          retention-days: 90

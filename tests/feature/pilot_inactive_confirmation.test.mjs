@@ -297,6 +297,17 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   assert.deepEqual([...outcomes.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
     ['SELFLEARN_NFL_OUTCOME_INGEST_TOKEN', 'SELFLEARN_NFL_OUTCOME_INGEST_TOKEN']);
   assert.doesNotMatch(outcomes.split('      - name: Retain the application pointer')[0], /secrets\./);
+  const observerPath = join('.github', 'workflows', 'public-parlay-observation.yml');
+  const observer = readFileSync(join(ROOT, observerPath), 'utf8');
+  assert.match(observer, /workflows: \[daily-pipeline, gameday\]/);
+  assert.match(observer, /vars.NFL_PUBLIC_PARLAY_OBSERVATION_MODE == 'record'/);
+  assert.match(observer, /github.repository == 'liddar12\/NFL2026'/);
+  assert.match(observer, /github.event.workflow_run.conclusion == 'success'/);
+  assert.match(observer, /github.event.workflow_run.head_repository.id == github.event.repository.id/);
+  assert.match(observer, /permissions:\n  actions: read\n  contents: read/);
+  assert.match(observer, /timeout 170s python3 -B scripts\/observe_parlay_offers.py/);
+  assert.match(observer, /published-data-\$\{\{ github.event.workflow_run.id \}\}-\$\{\{ github.event.workflow_run.run_attempt \}\}/);
+  assert.doesNotMatch(observer, /secrets\.|contents: write|git push/);
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
@@ -312,7 +323,7 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (offline.has(rel) || rel === retryPath || rel === outcomesPath || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
+      if (offline.has(rel) || rel === retryPath || rel === outcomesPath || rel === observerPath || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
       let src = readFileSync(join(ROOT, rel), 'utf8');
       if (['daily.yml', 'gameday.yml'].some(file => rel === join('.github', 'workflows', file))) {
         src = src.split(/(?=^      - name: )/m)
