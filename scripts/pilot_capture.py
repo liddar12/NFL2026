@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
 from scripts import export_learning as export, learning_journal as journal, learning_receipts as lr
 from scripts import pilot_config
 
-ENGINE_COMMIT = "0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a"
+ENGINE_COMMIT = "d40b9f08dcfe3633dedab31d983bf99bb9b610d8"
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 
 

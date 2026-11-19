@@ -26,13 +26,16 @@ if str(ROOT)not in sys.path:sys.path.insert(0,str(ROOT))
 from scripts import export_learning as export, capture_outcome_evidence as capture  # noqa: E402
 from scripts.learning_history_guard import _git  # noqa: E402
 
-ENGINE_COMMIT="0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a"
+ENGINE_COMMIT="d40b9f08dcfe3633dedab31d983bf99bb9b610d8"
 # Read-only compatibility after a pin upgrade. These fingerprints were computed
 # by selflearn_core.learning_jobs.code_identity() through engine() on the clean
 # pinned checkout. The digest includes Python sources, interpreter build, machine
 # and system. Unlisted historical runtimes fail closed until independently
 # verified and added here. A run record cannot authorize another runtime.
 APPROVED_HISTORICAL_ENGINE_CODE_IDS={
+    "0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a":frozenset({
+        "sha256:cce2376870ad8e8c2e116bd514a01f587242e3100de4c29473c76624b8d7e9c7",  # uv CPython 3.11.16 / Darwin arm64
+    }),
     "5e68953989b95731503d9e909ede7d4279b2a570":frozenset({
         "sha256:91085f0c18ed243d9632fa2abafc7d9df6d85677ab88d2040473ced089c4c811",  # uv CPython 3.11.16 / Darwin arm64
     }),

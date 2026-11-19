@@ -97,3 +97,20 @@ Under `/Users/jliddar/code/evidence/`:
 
 The evidence retains earlier failed runs separately. No test failure was converted
 to a skip and no generated data file was edited by hand in this integration.
+
+## Publication enqueue follow-up
+
+The standalone client now supports `--publication-status` and
+`--enqueue-publication` for an existing workflow, run ID and run attempt.
+Pass `--expected-intent` when recovering from discovery. The engine seals the
+original job definition and recovers it across retries. The client checks the
+attempt, publisher receipt, generation and job input identities, and matches
+the attestation membership against the original intake acknowledgment. A
+separate scoped worker observes the pool and records publication evidence.
+
+The paired canary now pins engine `d40b9f08dcfe3633dedab31d983bf99bb9b610d8`.
+Eight local ASGI/SQLite tests passed, including lost enqueue reply, restart
+after workspace deletion, one worker observation of synthetic public bytes
+and replay of the existing proof. Seventy-two focused pin and history checks
+also passed. This checkpoint covers the path through publication. Outcome
+application and scheduled collection still need combined acceptance.

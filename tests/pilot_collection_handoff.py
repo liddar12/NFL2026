@@ -205,6 +205,70 @@ class HandoffAcceptance(unittest.TestCase):
             with self.assertRaises(ValueError):
                 api.publisher(*RUN, path, checkout=self.checkout)
 
+    def test_enqueue_reply_loss_recovers_original_worker_result(self):
+        from contextlib import contextmanager
+        from selflearn_core.adapters.nfl_publication_journal import NFLPublicationJournal
+        from selflearn_core.store.learning_job_journal import LearningJobJournal
+
+        authority = E.fingerprint("local publication authority")
+        worker_token = "offline-publication-worker-" + "w" * 40
+        env = {**ENV, "SELFLEARN_PUBLICATION_MODE": "record",
+               "SELFLEARN_NFL_PUBLICATION_ORIGIN": "https://publication-fixture.example.com",
+               "SELFLEARN_PUBLICATION_WORKER_MODE": "record",
+               "SELFLEARN_PUBLICATION_WORKER_AUTHORITY_ID": authority,
+               "SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN": worker_token}
+        observed = []
+        raw = E.encoded(self.pool)
+
+        def fetch(url):
+            observed.append(url)
+            return 200, {"Content-Type": "application/json"}, raw, url
+
+        @contextmanager
+        def pair():
+            with LearningJobJournal(self.database, authority_id=authority) as jobs:
+                with NFLPublicationJournal(self.database) as journal:
+                    yield jobs, journal
+
+        def app():
+            return TestClient(create_app(store=object(), env=env,
+                journal_factory=lambda: NFLPublicationJournal(self.database),
+                collection_handoff_store=SQLiteCollectionHandoff,
+                publication_transport=fetch, publication_job_factory=pair))
+
+        path = H.BASE + "/" + "/".join(RUN) + "/publication"
+        with app() as first:
+            api = self.client(first, lose=(path,))
+            api.send(self.workspace, *RUN, INGEST, intake_transport=self.transport(first, INGEST))
+            ready = api.publisher(*RUN, self.receipt("match"), checkout=self.checkout)
+            identity = ready["intent"]["intent_id"]
+            queued = api.publication(*RUN, expected=identity, enqueue=True)
+            self.assertEqual(queued["state"], "registered")
+            self.assertFalse(queued["publication_verified"])
+            self.assertEqual(sum(method == "POST" and route == path for method, route, _, _ in self.calls), 2)
+            self.assertEqual(observed, [])
+
+        shutil.rmtree(self.workspace)
+        with app() as restarted:
+            api = self.client(restarted)
+            recovered = api.publication(*RUN, expected=identity)
+            self.assertEqual(recovered["prepared"], queued["prepared"])
+            self.assertEqual(recovered["job"]["snapshot"]["definition"], queued["job"]["snapshot"]["definition"])
+            worker = restarted.post("/api/v1/nfl/publication-worker", json={"version": 1},
+                                    headers={"Authorization": "Bearer " + worker_token})
+            self.assertEqual(worker.status_code, 200, worker.text)
+            finished = api.publication(*RUN, expected=identity)
+            self.assertEqual(finished["prepared"], queued["prepared"])
+            self.assertTrue(finished["publication_verified"])
+            repeated = api.publication(*RUN, expected=identity, enqueue=True)
+            self.assertEqual(repeated["job"]["attestation"], finished["job"]["attestation"])
+            self.assertEqual(repeated["job"]["result"], finished["job"]["result"])
+            self.assertEqual(observed, ["https://publication-fixture.example.com/data/leg_pool.json"])
+            self.assertFalse(finished["training_approved"])
+            self.assertEqual(api.pending()["pending"], [])
+            with self.assertRaises(H.HandoffError):
+                H.validate_publication({**finished, "intent_id": E.fingerprint("foreign")}, ready)
+
     def test_noop_receipt(self):
         self.disposition("noop")
 

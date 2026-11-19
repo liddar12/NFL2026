@@ -26,7 +26,7 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: '1'
       SELFLEARN_CHECKOUT: ${{ github.workspace }}/selflearning
-      EXPECTED_ENGINE_COMMIT: 0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a
+      EXPECTED_ENGINE_COMMIT: d40b9f08dcfe3633dedab31d983bf99bb9b610d8
     steps:
       - name: Checkout exact NFL test tree
         uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: liddar12/SelfLearning
-          ref: 0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a
+          ref: d40b9f08dcfe3633dedab31d983bf99bb9b610d8
           path: selflearning
           persist-credentials: false
 

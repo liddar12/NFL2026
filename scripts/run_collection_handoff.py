@@ -33,7 +33,7 @@ WORKFLOWS = {"daily.yml", "gameday.yml"}
 RUN_NUMBER = re.compile(r"[1-9][0-9]{0,18}\Z")
 REPO_NAME = re.compile(r"[a-z0-9_.-]{1,100}/[a-z0-9_.-]{1,100}\Z")
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
-RUN_ROUTE = re.compile(re.escape(BASE) + r"/(?:daily|gameday)\.yml/[1-9][0-9]{0,18}/[1-9][0-9]{0,18}(?:/(?:publisher|recover))?\Z")
+RUN_ROUTE = re.compile(re.escape(BASE) + r"/(?:daily|gameday)\.yml/[1-9][0-9]{0,18}/[1-9][0-9]{0,18}(?:/(?:publisher|recover|publication))?\Z")
 PENDING_ROUTE = re.compile(re.escape(BASE) + r"/pending\?limit=(?:[1-9]|[1-4][0-9]|50)(?:&after=sha256%3A[0-9a-f]{64})?\Z")
 STAMP = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?(?:Z|[+-](?:0[0-9]|1[0-5]):[0-5][0-9])\Z")
 SOURCES = {"leg_pool", "schedule", "parlay_calibration"}
@@ -206,6 +206,74 @@ def validate_view(value, repository, key, *, expected=None, receipt_ids=None):
     return value
 
 
+def validate_publication(value, collection):
+    """Bind the engine's publication status to this exact producer attempt."""
+    fields(value, {"version", "intent_id", "prepared", "state", "job", "job_registered",
+                   "recording_complete", "publication_verified", "publication_evidence_available",
+                   "training_approved"}, versioned=True)
+    intent, publisher = collection["intent"], collection["publisher_receipt"]
+    need(value["intent_id"] == intent["intent_id"] and value["training_approved"] is False)
+    prepared, job, state = value["prepared"], value["job"], value["state"]
+    if prepared is not None:
+        fields(prepared, {"version", "kind", "intent_id", "publisher_receipt_id", "generation_id",
+                          "generation_object_id", "declaration", "definition", "prepared_id",
+                          "stored_utc"}, versioned=True)
+        need(prepared["kind"] == "nfl.collection_publication_definition.v1"
+             and publisher is not None and publisher["disposition"] == "match"
+             and prepared["publisher_receipt_id"] == publisher["receipt_id"]
+             and all(prepared[key] == intent[key] for key in ("intent_id", "generation_id", "generation_object_id"))
+             and clock(publisher["stored_utc"]) <= clock(prepared["stored_utc"]) < clock(intent["latest_kickoff_utc"])
+             and prepared["prepared_id"] == export.fingerprint(
+                 {key: item for key, item in prepared.items() if key not in ("prepared_id", "stored_utc")}))
+    complete = verified = evidence = False
+    if job is not None:
+        need(prepared is not None)
+        fields(job, {"version", "snapshot", "input", "policy", "result", "attestation"})
+        input_object = job["input"]
+        fields(input_object, {"object_id", "kind", "payload"})
+        inputs = input_object["payload"]
+        need(input_object["kind"] == "source_snapshot"
+             and input_object["object_id"] == prepared["definition"]["input_object_id"]
+             and input_object["object_id"] == export.fingerprint(inputs))
+        need(type(job["version"]) is int and job["version"] == 2
+             and export._same_json(job["snapshot"]["definition"], prepared["definition"])
+             and inputs["object_id"] == intent["generation_object_id"]
+             and inputs["generation_id"] == intent["generation_id"])
+        status = job["snapshot"]["effective_status"]
+        terminal_states = {"succeeded", "failed", "expired", "runtime_limit", "attempt_limit"}
+        need(status in terminal_states | {"queued", "not_due", "running", "expired_lease"})
+        terminal = status in terminal_states
+        need(state == ("job_terminal" if terminal else "registered"))
+        complete = status == "succeeded"
+        proof = job["attestation"]
+        evidence = proof is not None
+        if evidence:
+            need(proof["object_id"] == intent["generation_object_id"]
+                 and proof["generation_id"] == intent["generation_id"]
+                 and proof["source_pool_id"] == intent["source_snapshots"]["leg_pool"]
+                 and proof["attestation_id"] == export.fingerprint(
+                     {key: item for key, item in proof.items() if key != "attestation_id"}))
+            for partition in ("receipts", "rejections"):
+                need(type(proof[partition]) is list)
+            members = [(row["source_receipt_id"], row["receipt_id"])
+                       for row in proof["receipts"] + proof["rejections"]]
+            original = collection["generation_ack"]
+            need(original is not None and not original["rejections"]
+                 and sorted(members) == sorted(
+                     (row["source_receipt_id"], row["receipt_id"]) for row in original["receipts"]))
+            verified = complete and bool(proof["receipts"])
+    elif prepared is not None:
+        need(state in {"prepared", "held_declaration_changed", "held_late"})
+    else:
+        expected = "awaiting_publication" if collection["publication_ready"] else collection["state"]
+        need(state in (expected, "held_late"))
+    need(value["job_registered"] is (job is not None)
+         and value["recording_complete"] is complete
+         and value["publication_verified"] is verified
+         and value["publication_evidence_available"] is evidence)
+    return value
+
+
 def validate_page(page, limit, after):
     fields(page, {"version", "observed_utc", "pending", "next_after"}, versioned=True)
     clock(page["observed_utc"])
@@ -238,11 +306,11 @@ def _https(token, *, intake=False):
         if intake:
             need(method == "POST" and route in (export.OBJECT_ROUTE, export.GENERATION_ROUTE))
         elif method == "GET":
-            need((RUN_ROUTE.fullmatch(route) and route.count("/") == BASE.count("/") + 3)
+            need((RUN_ROUTE.fullmatch(route) and (route.count("/") == BASE.count("/") + 3 or route.endswith("/publication")))
                  or PENDING_ROUTE.fullmatch(route))
         else:
             need(method == "POST" and (route == BASE or RUN_ROUTE.fullmatch(route)
-                 and route.endswith(("/publisher", "/recover"))))
+                 and route.endswith(("/publisher", "/recover", "/publication"))))
         need(body is None if method == "GET" else type(body) is bytes and 0 < len(body) <= export.MAX_BODY_BYTES)
         request = urllib.request.Request(ORIGIN + route, data=body, method=method,
             headers={"Authorization": "Bearer " + token, "Accept": "application/json", "Content-Type": "application/json"})
@@ -314,6 +382,16 @@ class Client:
         return validate_view(self._exchange("POST", path, {"version": 1, "intent_id": identity}),
                              self.repository, key, expected=identity, receipt_ids=receipt_ids)
 
+    def publication(self, workflow, run_id, run_attempt, *, expected=None, enqueue=False):
+        key = scope(workflow, run_id, run_attempt)
+        prior = self.read(*key, expected=expected)
+        path = BASE + "/" + "/".join(key) + "/publication"
+        if enqueue:
+            forecast.capture.disabled_config()
+            request = {"version": 1, "intent_id": prior["intent"]["intent_id"]}
+            return validate_publication(self._exchange("POST", path, request), prior)
+        return validate_publication(self._exchange("GET", path), prior)
+
     def pending(self, *, limit=16, after=None, pages=1):
         need(type(limit) is int and 1 <= limit <= MAX_SCAN and type(pages) is int and 1 <= pages <= MAX_PAGES)
         if after is not None:
@@ -382,7 +460,7 @@ class Client:
 def main(argv=None):
     parser = export._SafeParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
-    for command in ("send", "status", "recover", "pending", "publisher"):
+    for command in ("send", "status", "recover", "pending", "publisher", "publication-status", "enqueue-publication"):
         mode.add_argument("--" + command, action="store_true")
     parser.add_argument("--workspace")
     parser.add_argument("--workflow")
@@ -403,14 +481,17 @@ def main(argv=None):
             scope(*key)
             need(args.after is None and args.page_limit == 16 and args.max_pages == 1)
             need(bool(args.publisher_receipt) == args.publisher)
-            need(not args.expected_intent or args.status or args.recover)
-            need(bool(args.workspace) == (not (args.status or args.recover or args.publisher)))
-            if args.send or args.publisher or args.status or args.recover:
+            publication = args.publication_status or args.enqueue_publication
+            need(not args.expected_intent or args.status or args.recover or publication)
+            need(bool(args.workspace) == (not (args.status or args.recover or args.publisher or publication)))
+            if args.send or args.publisher or args.status or args.recover or publication:
                 client = Client(os.environ.get(TOKEN_ENV))
                 if args.expected_intent is not None:
                     export._hash(args.expected_intent)
                 if args.send:
                     value = client.send(args.workspace, *key, os.environ.get("SELFLEARN_NFL_INGEST_TOKEN"))
+                elif publication:
+                    value = client.publication(*key, expected=args.expected_intent, enqueue=args.enqueue_publication)
                 elif args.publisher:
                     value = client.publisher(*key, args.publisher_receipt)
                 else:
