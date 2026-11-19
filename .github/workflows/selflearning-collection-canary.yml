@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      EXPECTED_ENGINE_COMMIT: d40b9f08dcfe3633dedab31d983bf99bb9b610d8
+      EXPECTED_ENGINE_COMMIT: 25a1ef8885c7faf41682cba0def459c129ee1f8f
     steps:
       - name: Checkout exact NFL test tree
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: liddar12/SelfLearning
-          ref: d40b9f08dcfe3633dedab31d983bf99bb9b610d8
+          ref: 25a1ef8885c7faf41682cba0def459c129ee1f8f
           path: selflearning
           persist-credentials: false
       - name: Setup hosted test Python
