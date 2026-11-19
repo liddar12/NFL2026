@@ -135,3 +135,32 @@ and in-memory private Storage. It finished with exit 0 and removed the database
 cluster. Local reproduction and output are in
 `code/evidence/nfl-full-cycle-20261119.{sh,py,log}`. Scheduled workflow
 collection, hosted Storage and prospective accuracy still require verification.
+
+## Opt-in daily and gameday hooks
+
+The daily and gameday workflows now contain bounded collection steps for the
+main branch of `liddar12/NFL2026`. They require the repository variable
+`NFL_SELFLEARN_COLLECTION_MODE=record` and a configured engine. The default
+workflow skips these steps.
+
+Before the Git publisher runs, the collection step freezes and uploads the
+candidate forecast. After the publisher runs and Data CI retains its receipt,
+the handoff step verifies that the exact published pool matches the stored
+forecast. It enqueues eligible publication work. A separate step invokes
+the independent observation worker. Scope each secret to the step that uses it:
+
+- Forecast recording uses `SELFLEARN_NFL_COLLECTION_TOKEN` and
+  `SELFLEARN_NFL_INGEST_TOKEN`.
+- Publication handoff uses `SELFLEARN_NFL_COLLECTION_TOKEN`.
+- Observation uses `SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN`.
+
+Recording and handoff each have a 45-second limit. Observation has a 35-second
+limit. Learning failure reports an explicit held status or a nonblocking
+Actions failure, while the existing baseline publication and Data CI receipt
+keep their own result. A delayed deployment can leave a job pending. The
+independent recovery path still needs scheduling and acceptance, along with
+scheduled outcome capture and hosted persistence verification.
+
+Both workflows parse as YAML. Fourteen focused checks and nine paired local
+acceptance cases passed, including scope, ordering, secrets and transport failure.
+The opt-in workflow is prepared locally and has not been exercised in GitHub CI.

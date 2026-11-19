@@ -269,6 +269,32 @@ class HandoffAcceptance(unittest.TestCase):
             with self.assertRaises(H.HandoffError):
                 H.validate_publication({**finished, "intent_id": E.fingerprint("foreign")}, ready)
 
+    def test_workflow_collection_is_opt_in_and_reports_transport_failure(self):
+        from scripts import run_scheduled_collection as scheduled
+
+        env = {"GITHUB_REPOSITORY": "liddar12/NFL2026", "GITHUB_REF": "refs/heads/main",
+               "GITHUB_RUN_ID": RUN[1], "GITHUB_RUN_ATTEMPT": RUN[2],
+               "RUNNER_TEMP": str(self.base), H.TOKEN_ENV: COLLECTION,
+               "SELFLEARN_NFL_INGEST_TOKEN": INGEST}
+        with patch.object(H, "Client", side_effect=AssertionError("collection access")) as client:
+            with redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(scheduled.run("before-publish", RUN[0], env=env), 0)
+                self.assertEqual(scheduled.run("after-publish", RUN[0], env={
+                    **env, "NFL_SELFLEARN_COLLECTION_MODE": "record", "GITHUB_REF": "refs/heads/other"
+                }), 0)
+            client.assert_not_called()
+        self.assertIn('"status": "disabled"', output.getvalue())
+        self.assertIn('"status": "outside_collection_scope"', output.getvalue())
+        with (patch.object(D, "prepare", return_value={"ok": True}) as prepare,
+              patch.object(H, "Client", side_effect=OSError("fixture private transport detail")),
+              redirect_stdout(io.StringIO()) as output):
+            self.assertEqual(scheduled.run("before-publish", RUN[0], env={
+                **env, "NFL_SELFLEARN_COLLECTION_MODE": "record"
+            }), 0)
+        prepare.assert_called_once()
+        self.assertIn("collection_phase_held", output.getvalue())
+        self.assertNotIn("fixture private transport detail", output.getvalue())
+
     def test_noop_receipt(self):
         self.disposition("noop")
 

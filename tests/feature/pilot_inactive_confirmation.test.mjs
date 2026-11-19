@@ -212,29 +212,60 @@ print(json.dumps({"ok": ok,
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
 
-test('production is unchanged: only listed standalone tools and the locked test-only canary may reference pilot modules', () => {
+test('only the scoped collection workflow steps may reach the disabled pilot tools', () => {
   const hits = [];
-  // Collection clients are explicit standalone commands; no scheduled or app
-  // caller may reach them. Include each new client in both the allowlist and
-  // searched symbols, so adding a production caller still fails this check. The
-  // owner separately authorized ONE test-only canary workflow, whose read-only
-  // command/checkout contract is locked by pilot_canary_workflow.test.mjs.
+  const collectionSteps = {
+    'before-publish': {timeout: 45, secrets: ['COLLECTION', 'INGEST']},
+    'after-publish': {timeout: 45, secrets: ['COLLECTION']},
+    'observe-publication': {timeout: 35, secrets: ['PUBLICATION_WORKER']},
+  };
+  const workflowGuard = "        if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' && vars.NFL_SELFLEARN_COLLECTION_MODE == 'record' }}";
+  for (const [workflow, publishStep] of [['daily', 'Commit data/'], ['gameday', 'Commit snapshots + data']]) {
+    const path = join(ROOT, '.github', 'workflows', workflow + '.yml');
+    const workflowText = readFileSync(path, 'utf8');
+    const steps = workflowText.split(/(?=^      - name: )/m);
+    const classified = steps.map((step) => Object.keys(collectionSteps).find(phase => step.includes(
+      `scripts/run_scheduled_collection.py ${phase} ${workflow}.yml`)) ?? step.split('\n')[0]);
+    const commit = classified.indexOf('      - name: ' + publishStep);
+    const receipt = classified.indexOf('      - name: Retain exact published commit for Data CI');
+    assert.ok(classified.indexOf('before-publish') < commit && commit < receipt);
+    assert.ok(receipt < classified.indexOf('after-publish') &&
+      classified.indexOf('after-publish') < classified.indexOf('observe-publication'));
+    for (const [phase, options] of Object.entries(collectionSteps)) {
+      assert.equal(classified.filter(item => item === phase).length, 1);
+      const step = steps[classified.indexOf(phase)].trimEnd().split('\n');
+      assert.deepEqual(step.slice(1), [
+        workflowGuard,
+        '        continue-on-error: true',
+        '        env:',
+        '          NFL_SELFLEARN_COLLECTION_MODE: ${{ vars.NFL_SELFLEARN_COLLECTION_MODE }}',
+        ...options.secrets.map(scope => '          SELFLEARN_NFL_' + scope + '_TOKEN: ${{ secrets.SELFLEARN_NFL_' + scope + '_TOKEN }}'),
+        `        run: timeout ${options.timeout}s python3 -B scripts/run_scheduled_collection.py ${phase} ${workflow}.yml`,
+      ]);
+    }
+  }
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
     'run_parlay_feedback.py', 'learning_history_guard.py',
     'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
     'export_outcome_capture.py', 'export_capture_application.py',
-    'run_collection_handoff.py',
+    'run_collection_handoff.py', 'run_scheduled_collection.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
       if (offline.has(rel) || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
-      const src = readFileSync(join(ROOT, rel), 'utf8');
+      let src = readFileSync(join(ROOT, rel), 'utf8');
+      if (['daily.yml', 'gameday.yml'].some(file => rel === join('.github', 'workflows', file))) {
+        src = src.split(/(?=^      - name: )/m)
+          .filter(step => !Object.keys(collectionSteps).some(phase =>
+            step.includes(`scripts/run_scheduled_collection.py ${phase} ${name}`)))
+          .join('');
+      }
       if (pilotReferences.test(src)) hits.push(rel);
     }
   };
