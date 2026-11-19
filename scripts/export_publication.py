@@ -180,4 +180,3 @@ def validate_ack(ack, value):
               else "withheld" if ack["rejections"] else "no_supported_membership")
     need(ack["status"] == status, "publication_invalid_status")
     return ack
-
