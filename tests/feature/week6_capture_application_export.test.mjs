@@ -226,7 +226,7 @@ with tempfile.TemporaryDirectory() as tmp:
  changes=[(m,path) for m,path,_ in s.calls[n:] if m=='POST'];n=len(s.calls)
  replay=A.resume_registered(aid,rid,TOKEN,transport=s)
  missing=error(lambda:A.resume_registered(aid,rid,TOKEN,transport=Server()))
- schedule={'season':2026,'games':[{'status':'STATUS_FINAL','week':6,'kickoff_utc':'2026-09-02T00:00:00Z'},
+ schedule={'season':2026,'games':[{'status':'STATUS_FINAL','week':6,'kickoff_utc':'2026-09-02T00:00Z'},
   {'status':'STATUS_SCHEDULED','week':7,'kickoff_utc':'2026-09-03T00:00:00Z'},
   {'status':'STATUS_FINAL','week':1,'kickoff_utc':'2026-08-01T00:00:00Z'}]}
  period=scheduled.recent_period(schedule,C._instant('2026-09-05T00:00:00Z'))
