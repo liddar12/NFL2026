@@ -1491,6 +1491,51 @@ def check_atd_game_cards(cards_doc, leg_pool, joint_backtest):
                               % "\n  - ".join(problems[:20]))
 
 
+def review_captured_finals(review):
+    """Validate the published capture stamp and reconstruct its review projection.
+
+    The capture bytes and the refit's receipt membership live outside this
+    artifact. Use the projection to check lock eligibility within the review.
+    """
+    from scripts.harness.snapshot import utc_time
+    from scripts.scrape.espn import FINAL_STATUSES
+
+    label = (review.get("sources") or {}).get("finals")
+    if not isinstance(label, str) or "ESPN grading capture" not in label:
+        return None
+    stamp = re.fullmatch(
+        r"ESPN grading capture (\S+) \(manifest identity ([0-9a-f]{64}), "
+        r"([0-9]+) observed FINAL, ([0-9]+) verified prior review FINAL retained\); "
+        r"captured schedule updated ([^;]+)(?:; coverage .+)?", label)
+    captured_at = utc_time(stamp[1]) if stamp else None
+    if (captured_at is None
+            or (stamp[5] != "unknown" and utc_time(stamp[5]) is None)):
+        raise ValidationError("review.json sources.finals has a malformed grading capture stamp")
+
+    finals, seen = [], set()
+    for week, block in (review.get("weeks") or {}).items():
+        for game in block.get("games") or []:
+            final = game.get("final")
+            source = game.get("final_source")
+            if final is None and source is None:
+                continue
+            start = utc_time(game.get("kickoff_utc"))
+            scores = final if isinstance(final, dict) else {}
+            home, away = scores.get("home_score"), scores.get("away_score")
+            game_id = game.get("game_id")
+            if (source != "espn_final" or game.get("status") not in FINAL_STATUSES
+                    or type(home) is not int or type(away) is not int or min(home, away) < 0
+                    or start is None or start > captured_at or game_id in seen):
+                raise ValidationError("review.json captured FINAL evidence is inconsistent for week %s game %s"
+                                      % (week, game_id))
+            seen.add(game_id)
+            finals.append({"week": int(week), "game_id": game_id, "kickoff_utc": game["kickoff_utc"],
+                           "home_score": home, "away_score": away})
+    if len(finals) > int(stamp[3]) + int(stamp[4]):
+        raise ValidationError("review.json has more FINAL rows than its grading capture stamp")
+    return finals
+
+
 def check_review_learning_join(review, tuning, snapshot_dir):
     """review.json's learning block must be what scripts/build_review.py derives
     from the model_tuning.json and lock snapshots it is published WITH.
@@ -1505,7 +1550,11 @@ def check_review_learning_join(review, tuning, snapshot_dir):
     if review is None:
         return
     locks, _files = br.load_locks(snapshot_dir, review.get("season"))
-    want = br.learning_block(locks, tuning)
+    finals = review_captured_finals(review)
+    capture_bound = finals is not None
+    if capture_bound:
+        locks = br.captured_learning_locks(locks, finals)
+    want = br.learning_block(locks, tuning, capture_bound=capture_bound)
     got = review.get("learning") or {}
     problems = []
     for key in ("graded_locks_total", "refit", "consumed_all"):
@@ -1514,7 +1563,13 @@ def check_review_learning_join(review, tuning, snapshot_dir):
                             % (key, got.get(key), want.get(key)))
     for wk, blk in sorted((review.get("weeks") or {}).items()):
         wl = ((blk or {}).get("summary") or {}).get("learning") or {}
-        if wl.get("refit") is not None and wl.get("refit") != want.get("refit"):
+        if capture_bound:
+            expected = br.learning_for_week(locks.get(int(wk)), want["refit"], capture_bound=True)
+            for key in ("graded_locks", "refit"):
+                if wl.get(key) != expected[key]:
+                    problems.append("weeks.%s.summary.learning.%s is %r, expected %r"
+                                    % (wk, key, wl.get(key), expected[key]))
+        elif wl.get("refit") is not None and wl.get("refit") != want.get("refit"):
             problems.append("weeks.%s.summary.learning.refit is %r, not the newest pass %r"
                             % (wk, wl.get("refit"), want.get("refit")))
     if problems:

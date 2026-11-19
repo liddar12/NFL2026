@@ -1163,6 +1163,17 @@ def graded_lock_rows(lock_rows):
             and not r.get("estimate", True)]
 
 
+def captured_learning_locks(locks, finals):
+    """Select locks whose stored result agrees with that week's captured FINAL."""
+    from scripts.resolve_locks import compatible_resolved_game_lock
+    finals_by_week = {(int(row["week"]), row["game_id"]): row for row in finals}
+    return {
+        week: [row for row in rows if compatible_resolved_game_lock(
+            row, finals_by_week.get((int(week), str(row.get("event_id")))))]
+        for week, rows in locks.items()
+    }
+
+
 def newest_refit(tuning):
     """The newest IN-SEASON game_params refit pass in model_tuning.json history —
     the exact rule of app/views/model.js resolvedLockCount: kind "game_params",
@@ -1214,11 +1225,11 @@ def learning_for_week(lock_rows, refit, *, capture_bound=False):
 
 
 def learning_block(locks, tuning, *, capture_bound=False):
-    """Top-level proof of the loop from committed data ONLY. graded_locks_total =
-    the receipts under data/snapshots/*_games_open.json that refit consumes;
-    refit = the newest in-season pass in model_tuning.json; consumed_all =
-    (refit.n_resolved == graded_locks_total) when a pass exists, else null with
-    the reason. Adoption is reported exactly as archived — never inferred."""
+    """Summarize eligible locks and the newest in-season refit archive.
+
+    With captured finals, archive counts leave receipt membership unknown.
+    Legacy reviews retain the historical count comparison. Adoption follows
+    the archive's verdict."""
     total = sum(len(graded_lock_rows(rows)) for rows in (locks or {}).values())
     refit = newest_refit(tuning)
     if refit is None:
@@ -1352,15 +1363,7 @@ def build(inputs, now):
             ledger_legs[key] = None
     locks = inputs.get("locks") or {}          # {week: [rows]}
     capture_bound = inputs.get("captured_finals", False)
-    learning_locks = locks
-    if capture_bound:
-        from scripts.resolve_locks import compatible_resolved_game_lock
-        finals_by_week = {(int(row["week"]), row["game_id"]): row for row in inputs["finals"]}
-        learning_locks = {
-            week: [row for row in rows if compatible_resolved_game_lock(
-                row, finals_by_week.get((int(week), str(row.get("event_id")))))]
-            for week, rows in locks.items()
-        }
+    learning_locks = captured_learning_locks(locks, inputs["finals"]) if capture_bound else locks
     scores = (inputs.get("estimate_scores") or {}).get("resolved") or []
     parlays_doc = inputs.get("parlays") or {}
     previous = inputs.get("previous") or {}
