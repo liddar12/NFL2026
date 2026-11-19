@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      EXPECTED_ENGINE_COMMIT: 25a1ef8885c7faf41682cba0def459c129ee1f8f
+      EXPECTED_ENGINE_COMMIT: d4e4ade73445733a8055ce6c56f3bd63755c9ba2
     steps:
       - name: Checkout exact NFL test tree
         uses: actions/checkout@v4
@@ -32,13 +32,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: liddar12/SelfLearning
-          ref: 25a1ef8885c7faf41682cba0def459c129ee1f8f
+          ref: d4e4ade73445733a8055ce6c56f3bd63755c9ba2
           path: selflearning
           persist-credentials: false
       - name: Setup hosted test Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Set up Node for PostgreSQL-WASM
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Verify immutable source inputs
         shell: bash
         run: |
@@ -46,7 +50,12 @@ jobs:
           test "$(git -C selflearning rev-parse HEAD)" = "$EXPECTED_ENGINE_COMMIT"
       - name: Install pinned engine test dependencies
         working-directory: selflearning
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt 'pytest>=8.0'
+      - name: Install the same pinned local SQL test dependency as engine CI
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/selflearn-pglite" --no-save --package-lock=false @electric-sql/pglite@0.3.16
+          printf 'SELFLEARN_PGLITE_MODULE=%s\n' "$RUNNER_TEMP/selflearn-pglite/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
       - name: Exercise original-run recovery through local ASGI and SQLite
         working-directory: nfl
         shell: bash
@@ -56,11 +65,25 @@ jobs:
             --engine-checkout ../selflearning \
             --expected-engine-sha "$EXPECTED_ENGINE_COMMIT" \
             2>&1 | tee "$RUNNER_TEMP/collection-handoff.log"
+      - name: Verify roster-bound outcome replay and lost replies
+        working-directory: selflearning
+        shell: bash
+        env:
+          NFL2026_CHECKOUT: ${{ github.workspace }}/nfl
+          PYTHONPATH: packages/selflearn-core:tests
+        run: |
+          set -o pipefail
+          python -m pytest -q -rs \
+            tests/postgres/test_capture_outcomes_atomic.py \
+            tests/postgres/test_capture_application_sender_failures.py \
+            2>&1 | tee "$RUNNER_TEMP/outcome-replay.log"
       - name: Retain test evidence only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: selflearning-collection-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/collection-handoff.log
+          path: |
+            ${{ runner.temp }}/collection-handoff.log
+            ${{ runner.temp }}/outcome-replay.log
           if-no-files-found: error
           retention-days: 7
