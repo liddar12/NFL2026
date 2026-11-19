@@ -391,3 +391,22 @@ producer lineage stamp, which exists only on the local branch. The
 capture establishes retrieval of the published JSON files. Browser-built
 cards and actual views by a specific person are outside this evidence.
 See `code/evidence/nfl-public-card-observation-final-20261119.json`.
+
+### Grade the retained observation
+
+Use a later verified outcome capture for the same season and week. The
+grader recomputes the public observation's membership from the retained
+bytes and uses each card's original line, fixture and stable player ID.
+A changed fixture remains pending. Full hits, losses, reduced cards,
+fully void cards and pending cards have separate counts.
+
+```sh
+python3 scripts/grade_observed_parlays.py --observation "$NFL_OBSERVATION" \
+  --outcomes "$NFL_OUTCOME_CAPTURE" --report-dir "$NFL_GRADE_REPORTS"
+```
+
+The optional report directory is outside the repository. Reports are
+content-addressed, so retries retain the same result and new evidence
+can produce a distinct report. The Week 11 pregame check produced 39
+Game and 18 Week pending cards, with no verified finals. This command
+does not publish grades, compute payouts or change recommendations.

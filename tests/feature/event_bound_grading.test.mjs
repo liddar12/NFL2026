@@ -89,6 +89,32 @@ emit({"fact": facts(leg, stat_rows, snap_rows),
   assert.equal(r.receipt.team, 'CLE');
 });
 
+test('retained published grades follow exact terms even when two versions share a rank', () => {
+  const r = py(`
+from scripts.grade_observed_parlays import grade_cards
+from scripts.observe_parlay_offers import classify_offers
+kickoff='2026-11-09T18:00:00Z'
+scheduled=[dict(g, status='STATUS_SCHEDULED', kickoff_utc=kickoff) for g in games]
+schedule=dict(season=2026,games=scheduled)
+slate=dict(season=2026,week=week,updated_utc='2026-11-08T18:00:00Z',parlays=[
+    dict(parlay_id='rank-1',scope='game',game_id=leg['game_id'],legs=[leg]),
+    dict(parlay_id='rank-1',scope='game',game_id=leg['game_id'],legs=[
+        dict(leg,line=89.5,selection='A. Estime 90+ rush yds')]),
+    dict(parlay_id='rank-1',scope='game',game_id=games[1]['game_id'],legs=[
+        dict(market='moneyline',selection='MIN ML',side='home')])])
+refs=classify_offers(slate,schedule,'2026-11-09T17:00:00Z')
+observed=[dict(g,final=True,observed_utc='2026-11-09T23:00:00Z',**finals[g['game_id']]) for g in scheduled]
+observed[1]['away']='NYJ'
+evidence=dict(season=2026,week=week,cards=refs)
+emit(grade_cards(evidence,slate,schedule,observed,[stats],[snap,cle_sheet,no_sheet],roster))
+`);
+  assert.deepEqual(r.cards.map(c => c.result), ['full_hit', 'loss', 'pending']);
+  assert.equal(new Set(r.cards.map(c => c.offer_sha256)).size, 3);
+  assert.deepEqual(r.cards.slice(0,2).map(c => c.legs[0].actual), [72,72]);
+  assert.equal(r.cards[2].legs[0].reason, 'final_fixture_mismatch');
+  assert.deepEqual(r.by_scope.game, { full_hit: 1, loss: 1, pending: 1 });
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]

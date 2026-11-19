@@ -304,8 +304,9 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
     'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
     'export_outcome_capture.py', 'export_capture_application.py',
     'run_collection_handoff.py', 'run_scheduled_collection.py', 'run_scheduled_outcomes.py',
+    'observe_parlay_offers.py', 'grade_observed_parlays.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection|run_scheduled_outcomes/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection|run_scheduled_outcomes|observe_parlay_offers|grade_observed_parlays/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
