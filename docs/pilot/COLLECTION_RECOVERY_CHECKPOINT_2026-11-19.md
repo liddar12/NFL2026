@@ -164,3 +164,22 @@ scheduled outcome capture and hosted persistence verification.
 Both workflows parse as YAML. Fourteen focused checks and nine paired local
 acceptance cases passed, including scope, ordering, secrets and transport failure.
 The opt-in workflow is prepared locally and has not been exercised in GitHub CI.
+
+## Recovery after the publisher runner exits
+
+The opt-in `selflearning-publication-retry` workflow follows a completed
+daily or gameday run on this repository's main branch. With read-only GitHub
+permissions, it checks out trusted main code and retrieves the receipt artifact
+named for the exact upstream run ID and attempt. It can use a receipt that was
+retained before a later cancellation or failure. It treats a missing artifact
+as unavailable evidence and can still invoke the independently scoped observer
+for existing jobs.
+
+Recovery validates the attempt receipt before any hosted write, joins it to
+the original durable forecast, and checks the exact published Git pool hash.
+It does not reconstruct a missing forecast or receipt. The paired rehearsal
+deleted the forecasting workspace before recording the publisher handoff,
+rejected a different attempt before contacting the engine, and recovered
+the same publication job after a lost reply. Fourteen local isolation checks
+and nine paired acceptance cases passed. GitHub event delivery and hosted
+access still require acceptance during rollout.

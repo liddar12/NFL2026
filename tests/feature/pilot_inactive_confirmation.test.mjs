@@ -244,6 +244,22 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
       ]);
     }
   }
+  const retryPath = join('.github', 'workflows', 'selflearning-publication-retry.yml');
+  const retry = readFileSync(join(ROOT, retryPath), 'utf8');
+  assert.match(retry, /workflows: \[daily-pipeline, gameday\]/);
+  assert.match(retry, /github.event.workflow_run.head_repository.id == github.event.repository.id/);
+  assert.match(retry, /github.event.workflow_run.head_branch == 'main'/);
+  assert.match(retry, /vars.NFL_SELFLEARN_COLLECTION_MODE == 'record'/);
+  assert.match(retry, /^permissions:\n  contents: read\n  actions: read$/m);
+  assert.match(retry, /ref: \$\{\{ github.sha \}\}\n          fetch-depth: 0\n          persist-credentials: false/);
+  assert.match(retry, /name: published-data-\$\{\{ github.event.workflow_run.id \}\}-\$\{\{ github.event.workflow_run.run_attempt \}\}/);
+  assert.match(retry, /if: \$\{\{ steps.receipt.outcome == 'success' \}\}/);
+  assert.deepEqual([...retry.matchAll(/^        run: (.+)$/gm)].map(match => match[1]), [
+    'timeout 45s python3 -B scripts/run_scheduled_collection.py recover-published',
+    'timeout 35s python3 -B scripts/run_scheduled_collection.py observe-publication daily.yml',
+  ]);
+  assert.deepEqual([...retry.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
+    ['SELFLEARN_NFL_COLLECTION_TOKEN', 'SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN']);
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
@@ -258,7 +274,7 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (offline.has(rel) || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
+      if (offline.has(rel) || rel === retryPath || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
       let src = readFileSync(join(ROOT, rel), 'utf8');
       if (['daily.yml', 'gameday.yml'].some(file => rel === join('.github', 'workflows', file))) {
         src = src.split(/(?=^      - name: )/m)

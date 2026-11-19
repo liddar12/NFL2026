@@ -206,6 +206,7 @@ class HandoffAcceptance(unittest.TestCase):
                 api.publisher(*RUN, path, checkout=self.checkout)
 
     def test_enqueue_reply_loss_recovers_original_worker_result(self):
+        from scripts.run_scheduled_collection import publish_original
         from contextlib import contextmanager
         from selflearn_core.adapters.nfl_publication_journal import NFLPublicationJournal
         from selflearn_core.store.learning_job_journal import LearningJobJournal
@@ -239,16 +240,21 @@ class HandoffAcceptance(unittest.TestCase):
         path = H.BASE + "/" + "/".join(RUN) + "/publication"
         with app() as first:
             api = self.client(first, lose=(path,))
-            api.send(self.workspace, *RUN, INGEST, intake_transport=self.transport(first, INGEST))
-            ready = api.publisher(*RUN, self.receipt("match"), checkout=self.checkout)
-            identity = ready["intent"]["intent_id"]
-            queued = api.publication(*RUN, expected=identity, enqueue=True)
+            admitted = api.send(self.workspace, *RUN, INGEST, intake_transport=self.transport(first, INGEST))
+            identity = admitted["intent"]["intent_id"]
+            artifact = self.receipt("match")
+            shutil.rmtree(self.workspace)
+            old_count = len(self.calls)
+            with self.assertRaises(ValueError):
+                publish_original(api, (*RUN[:2], "2"), artifact, checkout=self.checkout)
+            self.assertEqual(len(self.calls), old_count)
+            queued = publish_original(api, RUN, artifact, checkout=self.checkout)
+            ready = api.read(*RUN, expected=identity)
             self.assertEqual(queued["state"], "registered")
             self.assertFalse(queued["publication_verified"])
             self.assertEqual(sum(method == "POST" and route == path for method, route, _, _ in self.calls), 2)
             self.assertEqual(observed, [])
 
-        shutil.rmtree(self.workspace)
         with app() as restarted:
             api = self.client(restarted)
             recovered = api.publication(*RUN, expected=identity)

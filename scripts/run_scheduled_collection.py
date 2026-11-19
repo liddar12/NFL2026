@@ -38,6 +38,36 @@ def invoke_worker(token):
     return status
 
 
+def publish_original(client, key, receipt_path, *, expected=None, checkout=ROOT):
+    # Refuse the local receipt before writes if it belongs to another attempt.
+    handoff.queue.publisher_commit(receipt_path, key[1], key[2])
+    original = client.recover(*key, expected=expected)
+    identity = original["intent"]["intent_id"]
+    recorded = original if original["publisher_receipt"] is not None else client.publisher(
+        *key, receipt_path, checkout=checkout)
+    if original["publisher_receipt"] is not None:
+        receipt = handoff.publisher_request(original["intent"], receipt_path, checkout)
+        handoff.need(handoff.publisher_record(original["intent"], receipt)["receipt_id"]
+                     == original["publisher_receipt"]["receipt_id"])
+    if recorded["publication_ready"]:
+        return client.publication(*key, expected=identity, enqueue=True)
+    return recorded
+
+
+def recover_published_run(env, temp):
+    workflow = {"daily-pipeline": "daily.yml", "gameday": "gameday.yml"}[env["PUBLISHER_WORKFLOW"]]
+    key = handoff.scope(workflow, env["PUBLISHER_RUN_ID"], env["PUBLISHER_RUN_ATTEMPT"])
+    client = handoff.Client(env.get(handoff.TOKEN_ENV), attempts=1)
+    try:
+        result = publish_original(client, key, temp / "selflearning-publisher" / "published-data.txt",
+                                  checkout=ROOT)
+    except handoff.HandoffError as error:
+        if str(error) == "collection_intent_not_found":
+            return report("no_original_forecast")
+        raise
+    return report(result["state"])
+
+
 def run(phase, workflow, *, env=os.environ):
     if env.get("NFL_SELFLEARN_COLLECTION_MODE") != "record":
         return report("disabled")
@@ -45,6 +75,9 @@ def run(phase, workflow, *, env=os.environ):
         return report("outside_collection_scope")
 
     try:
+        if phase == "recover-published":
+            forecast.capture.disabled_config()
+            return recover_published_run(env, Path(env["RUNNER_TEMP"]).resolve(strict=True))
         key = handoff.scope(workflow, env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"])
         if phase == "observe-publication":
             forecast.capture.disabled_config()
@@ -71,10 +104,7 @@ def run(phase, workflow, *, env=os.environ):
                 return report("no_original_forecast")
             local = handoff.preview(workspace, *key)["intent"]
             client = handoff.Client(env.get(handoff.TOKEN_ENV), attempts=1)
-            original = client.recover(*key, expected=local["intent_id"])
-            handoff.need(original["intent"]["intent_id"] == local["intent_id"])
-            recorded = client.publisher(*key, receipt_path)
-            state = client.publication(*key, expected=local["intent_id"], enqueue=True) if recorded["publication_ready"] else recorded
+            state = publish_original(client, key, receipt_path, expected=local["intent_id"], checkout=ROOT)
         else:
             raise ValueError("invalid phase")
         return report(state["state"])
@@ -86,9 +116,11 @@ def run(phase, workflow, *, env=os.environ):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("before-publish", "after-publish", "observe-publication"))
-    parser.add_argument("workflow", choices=sorted(handoff.WORKFLOWS))
+    parser.add_argument("phase", choices=("before-publish", "after-publish", "observe-publication", "recover-published"))
+    parser.add_argument("workflow", choices=sorted(handoff.WORKFLOWS), nargs="?")
     args = parser.parse_args()
+    if (args.workflow is None) != (args.phase == "recover-published"):
+        parser.error("supply the workflow only for inline phases")
     return run(args.phase, args.workflow)
 
 

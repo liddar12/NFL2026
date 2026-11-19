@@ -1,0 +1,63 @@
+# Separate runner recovers the exact upstream publisher attempt from its artifact.
+name: selflearning-publication-retry
+
+on:
+  workflow_run:
+    workflows: [daily-pipeline, gameday]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: selflearning-publication-retry-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: ${{ vars.NFL_SELFLEARN_COLLECTION_MODE == 'record' &&
+      github.repository == 'liddar12/NFL2026' &&
+      github.ref == 'refs/heads/main' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.id == github.event.repository.id &&
+      (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout trusted recovery code and commit history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the exact publisher receipt
+        id: receipt
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: published-data-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: ${{ runner.temp }}/selflearning-publisher
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Recover the original publication handoff
+        if: ${{ steps.receipt.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          NFL_SELFLEARN_COLLECTION_MODE: ${{ vars.NFL_SELFLEARN_COLLECTION_MODE }}
+          SELFLEARN_NFL_COLLECTION_TOKEN: ${{ secrets.SELFLEARN_NFL_COLLECTION_TOKEN }}
+          PUBLISHER_WORKFLOW: ${{ github.event.workflow_run.name }}
+          PUBLISHER_RUN_ID: ${{ github.event.workflow_run.id }}
+          PUBLISHER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: timeout 45s python3 -B scripts/run_scheduled_collection.py recover-published
+
+      - name: Retry observation after the publisher run
+        continue-on-error: true
+        env:
+          NFL_SELFLEARN_COLLECTION_MODE: ${{ vars.NFL_SELFLEARN_COLLECTION_MODE }}
+          SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN: ${{ secrets.SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN }}
+        run: timeout 35s python3 -B scripts/run_scheduled_collection.py observe-publication daily.yml
