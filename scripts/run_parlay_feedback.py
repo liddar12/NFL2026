@@ -26,13 +26,17 @@ if str(ROOT)not in sys.path:sys.path.insert(0,str(ROOT))
 from scripts import export_learning as export, capture_outcome_evidence as capture  # noqa: E402
 from scripts.learning_history_guard import _git  # noqa: E402
 
-ENGINE_COMMIT="5fd6475cc1895f0a7f63132dfae58c7e0729f458"
+ENGINE_COMMIT="17c6644537d78628442ef6adf25203756dfcc368"
 # Read-only compatibility after a pin upgrade. These fingerprints were computed
 # by selflearn_core.learning_jobs.code_identity() through engine() on the clean
 # pinned checkout. The digest includes Python sources, interpreter build, machine
 # and system. Unlisted historical runtimes fail closed until independently
 # verified and added here. A run record cannot authorize another runtime.
 APPROVED_HISTORICAL_ENGINE_CODE_IDS={
+    "5fd6475cc1895f0a7f63132dfae58c7e0729f458":frozenset({
+        "sha256:e4b1683bcffc5354858c24a594655f1e4cb93a29d20d0b9ea16021e5d474bbb9",  # CPython 3.12.9 / Darwin arm64
+        "sha256:c4d1d8fe99a59827c001c9da589b1bc1c8d4e649e91d3cc0f6c426811a312448",  # uv CPython 3.12.14 / Darwin arm64
+    }),
     "d40b9f08dcfe3633dedab31d983bf99bb9b610d8":frozenset({
         "sha256:e11a0fbbe9416e09e581ef8e20a4620034b8a4b4d0c323722f85ef84d27f50d1",  # CPython 3.12.9 / Darwin arm64
         "sha256:9e0cb7bd48fc0cc70fe2ecbf27355810217dc865101f4bd384849514a25eca5a",  # uv CPython 3.12.14 / Darwin arm64
