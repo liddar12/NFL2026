@@ -32,6 +32,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import {
   SEED_TEAM as SEED, EXPECTED_CARDS, EXPECTED_BANDS, EXPECTED_BAND_TEXT, UPCOMING_GAMES,
   SKIP_REASON,
@@ -299,4 +300,33 @@ test('R86 — the void and the row bottoms hold at every dial, not just the defa
     expect(g.docScrollWidth).toBe(g.innerWidth);
   }
   expect(errors).toEqual([]);
+});
+
+test('MY exposure reflects the displayed cards and clears when the seed is removed', async ({ page }) => {
+  await openMy(page, PHONE);
+  const panel = page.locator('#mp-shared-risk');
+  await expect(panel.locator('summary')).toContainText(`${EXPECTED_CARDS}/${EXPECTED_CARDS} share one game`);
+  await panel.locator('summary').click();
+  await expect(panel).toContainText('Different card names do not remove shared exposure.');
+  const bounds = await panel.boundingBox();
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(PHONE.width);
+  await page.locator('#mp-seeds [data-drop]').click();
+  await expect(panel).toBeHidden();
+  await expect(page.locator('#mp-list .mp-card')).toHaveCount(0);
+});
+
+test('MY removes stale player props even when the page stays open', async ({ page }) => {
+  const pool = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url), 'utf8'));
+  const now = Date.now();
+  await page.clock.install({ time: new Date(now) });
+  await page.route('**/data/leg_pool.json*', (route) => route.fulfill({
+    json: { ...pool, prop_injury_expires_utc: new Date(now + 60000).toISOString() },
+  }));
+  await openMy(page, PHONE);
+  const playerProps = page.locator('#mp-list .leg-nm').filter({ hasText: /yds$/ });
+  await expect(playerProps.first()).toBeVisible();
+  await page.clock.fastForward(61000);
+  await expect(playerProps).toHaveCount(0);
+  await expect(page.locator('#mp-freshness')).toContainText('props are on hold');
+  await expect(page.locator('#mp-freshness')).toBeVisible();
 });

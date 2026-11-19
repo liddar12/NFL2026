@@ -334,6 +334,15 @@ jobs:
       # commits from a common base; scripts/publish_data.sh now owns the publish
       # and is race-safe by construction — see docs/PUBLISH.md. data/ includes
       # the snapshots and data/pipeline_stages.json.
+      - name: Record pre-kickoff forecasts for SelfLearning
+        if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' && vars.NFL_SELFLEARN_COLLECTION_MODE == 'record' }}
+        continue-on-error: true
+        env:
+          NFL_SELFLEARN_COLLECTION_MODE: ${{ vars.NFL_SELFLEARN_COLLECTION_MODE }}
+          SELFLEARN_NFL_COLLECTION_TOKEN: ${{ secrets.SELFLEARN_NFL_COLLECTION_TOKEN }}
+          SELFLEARN_NFL_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_INGEST_TOKEN }}
+        run: timeout 45s python3 -B scripts/run_scheduled_collection.py before-publish gameday.yml
+
       - name: Commit snapshots + data
         env:
           PUBLISH_RECEIPT_PATH: ${{ runner.temp }}/published-data.txt

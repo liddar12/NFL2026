@@ -12,6 +12,29 @@ for (const c of week) {
 }
 const max = Math.max(...exposure.values());
 
+test('Published Game counts shared losing selections in the filtered cards', async ({ page }) => {
+  const fixture = structuredClone(doc);
+  const sample = fixture.parlays.find((card) => card.scope === 'game'
+    && card.legs.some((leg) => leg.market === 'moneyline'));
+  const moneyline = sample.legs.find((leg) => leg.market === 'moneyline');
+  const other = sample.legs.find((leg) => leg !== moneyline);
+  fixture.parlays = fixture.parlays.filter((card) => card.scope !== 'game');
+  fixture.parlays.push({ ...sample, legs: [moneyline, other] }, {
+    ...sample, parlay_id: 'shared-risk-test', card_id: 'shared-risk-test',
+    legs: [moneyline, { ...other, gsis_id: 'fixture-player-1', selection: 'Fixture One 55+ rec yds' },
+      { ...other, gsis_id: 'fixture-player-2', selection: 'Fixture Two 40+ rec yds' }],
+  });
+  await page.route('**/data/parlays.json*', (route) => route.fulfill({ json: fixture }));
+  await page.goto('/#/parlays');
+  const risk = page.locator('#parlays-list .game-selection-risk');
+  await expect(risk.locator('summary')).toHaveText('SHARED SELECTION · 2/2 cards');
+  await risk.locator('summary').click();
+  await expect(risk).toContainText(`If ${moneyline.selection} loses, it defeats 2 of the 2 shown cards.`);
+  await setLegs(page, 2);
+  await expect(page.locator('#parlays-list .card.parlay')).toHaveCount(1);
+  await expect(risk).toHaveCount(0);
+});
+
 test('Week shared-risk warning follows shown cards and does not leak into other modes', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(String(error)));

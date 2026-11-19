@@ -117,8 +117,9 @@ import {
   getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, loadJson,
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
-import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
+import { summarizePortfolio, renderPortfolioRisk, renderGameSelectionRisk } from '../portfolio-risk.js';
 import { confChip, confClass } from '../bet-types.js';
+import { propInjuryDeadline, PROP_INJURY_HOLD } from '../prop-freshness.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -944,7 +945,8 @@ export default async function mountParlays(el) {
     listEl.dataset.parlayWeek = String(selWeek);
     const coverageNote = selWeek === curWeek && parlays === curParlays
       ? renderCandidateCoverage(data.candidate_coverage, active, matchupById) : '';
-    listEl.innerHTML = coverageNote + (shown.length
+    const gameRisk = active === 'game' ? renderGameSelectionRisk(shown, sched?.games, selWeek) : '';
+    listEl.innerHTML = coverageNote + gameRisk + (shown.length
       ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf
         ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'
@@ -1101,7 +1103,9 @@ export default async function mountParlays(el) {
     if (!on) syncGradedChrome();
   }
 
+  let propExpiryTimer;
   async function paintAtd() {
+    clearTimeout(propExpiryTimer);
     const on = atdActive();
     setAtdMode(!!on);
     if (!on) return;
@@ -1124,7 +1128,10 @@ export default async function mountParlays(el) {
     }
     const games = sched && sched.games;
     const types = typesOn();
-    const legs = btMod.typeLegs(typePool, types, games);
+    const now = Date.now();
+    const expiry = propInjuryDeadline(typePool);
+    const usesProps = types.some((type) => type !== 'ml');
+    const legs = btMod.typeLegs(typePool, types, games, now);
     // RC-02 — ONE effective count, the very value the stepper displays, for the
     // generator too (a saved WEEK 10 shows 7 on GAME and must build 7).
     const n = btMod.stepValue({ ...typeState, types }, scope, legCountsForScope());
@@ -1134,7 +1141,8 @@ export default async function mountParlays(el) {
       const res = btMod.gameMixCards(legs, n, btMod.typeTable(typeCalib, typePool), typeGame);
       cards = btMod.sortCards(res.cards, typeState.sort);
       html = cards.length
-        ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games, exact: res.exact })).join('')
+        ? renderGameSelectionRisk(cards, games, typePool.week)
+          + cards.map((c) => btMod.renderTypeCard(c, { scope, types, games, exact: res.exact })).join('')
         : `<div class="state">${res.reason}</div>`;
     } else {
       // R133 — owner: whenever MONEYLINE is chosen, the two most likely
@@ -1151,7 +1159,15 @@ export default async function mountParlays(el) {
         + (mix.length ? mix.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
           : `<div class="state">${res.reason}</div>`);
     }
-    listEl.innerHTML = html;
+    const freshnessNote = usesProps && expiry <= now
+      ? `<div class="state" role="status">${PROP_INJURY_HOLD}</div>` : '';
+    listEl.innerHTML = freshnessNote + html;
+    clearTimeout(propExpiryTimer);
+    if (usesProps && Number.isFinite(expiry) && expiry > now) {
+      propExpiryTimer = setTimeout(() => {
+        if (listEl.isConnected && atdActive()) paintAtd();
+      }, Math.min(expiry - now + 25, 2147483647));
+    }
     betShown.atd = cards;
     if (cards.length) addBetButtons(listEl, cards);
   }
@@ -1344,11 +1360,11 @@ export default async function mountParlays(el) {
     const card = (atd ? betShown.atd : betShown.list)[i];
     if (!card) return;
     const legs = (card.legs || []).map((l) => ({ ...l, game_id: l.game_id != null ? l.game_id : card.game_id }));
-    // the card's own model chance: ATD cards carry it; a slate card carries its
-    // EV over the product of its prices, so model = (1 + EV) x that product
     const priced = legs.reduce((p, l) => p * Number(l.implied_prob), 1);
-    const model = atd ? card.model_prob
-      : (Number.isFinite(priced) && Number.isFinite(Number(card.model_ev)) ? (1 + Number(card.model_ev)) * priced : null);
+    const joint = card.joint_model_prob;
+    const legacyModel = Number.isFinite(priced) && Number.isFinite(Number(card.model_ev))
+      ? (1 + Number(card.model_ev)) * priced : null;
+    const model = atd ? card.model_prob : (Number.isFinite(joint) && joint >= 0 && joint <= 1 ? joint : legacyModel);
     const source = atd ? 'td' : (scopeOf(card) === 'week' ? 'week' : 'game');
     import('./mybets.js')
       .then((mod) => mod.openBetSheet({ source, week: curWeek, legs, title: card.parlay_id || card.mode || null, model }))

@@ -184,6 +184,33 @@ print(json.dumps({"kept": [p["gsis_id"] for p in w["players"]], "unchanged": jso
   assert.equal(r.counts.unknown_or_stale, 1);
 });
 
+test('both prop collections are withheld on conflicts, and an assessment applies only to its original pool', () => {
+  const r = runPy(`${PRELUDE}
+from copy import deepcopy
+def prop(pid, team, market):
+    return {"gsis_id":f"espn-{pid}", "team":team, "game_id":G["game_id"], "market":market, "rungs":[{}]}
+pool = {"players":[prop("222", "SF", "wr_rec_yds"), prop("333", "SF", "rb_rush_yds")],
+        "atd_legs":[prop("222", "WAS", "anytime_td"), prop("333", "SF", "anytime_td"),
+                    prop("3126486", "SF", "anytime_td")]}
+evidence = {G["game_id"]: [ev(active_ids=["222","333"])]}
+a = ic.assess(pool, [G], T("2026-10-19T22:55:00Z"), evidence, REG)
+w = ic.withhold(pool, a)
+changed = deepcopy(pool)
+changed["atd_legs"][1]["rungs"].append({"line": 1})
+try:
+    ic.withhold(changed, a)
+    mismatch = None
+except ValueError as exc:
+    mismatch = str(exc)
+print(json.dumps({"kept":{k:[p["gsis_id"] for p in v] for k,v in w.items()}, "mismatch":mismatch,
+                  "rungs":a["rungs"], "conflicts":[p["collection"] for p in a["players"] if
+                    p["reason"] == "conflicting_player_team"]}))`);
+  assert.deepEqual(r.kept, { players: ['espn-333'], atd_legs: ['espn-333'] });
+  assert.equal(r.mismatch, 'inactive_assessment_pool_mismatch');
+  assert.deepEqual(r.rungs, { offered: 2, withheld: 3 });
+  assert.deepEqual(r.conflicts, ['players', 'atd_legs']);
+});
+
 test('pilot config: disabled, shadow serving, engine pinned to the reviewed event-bound runtime; the reader refuses invalid settings', () => {
   const r = runPy(`
 import json, os, tempfile
@@ -207,29 +234,103 @@ print(json.dumps({"ok": ok,
   "short_sha": refused({**base, "engine_commit": "aacb19c7"})}))`);
   assert.equal(r.ok.enabled, '0');
   assert.equal(r.ok.serving_mode, 'shadow');
-  assert.equal(r.ok.engine_commit, '889e147e84b01c28898f268eb89f91c978ef490f');
+  assert.equal(r.ok.engine_commit, '17c6644537d78628442ef6adf25203756dfcc368');
   assert.equal(r.ok.freshness_profile, 'confirmed_inactives_v1');
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
 
-test('production is unchanged: only listed offline tools and the locked test-only canary may reference pilot modules', () => {
+test('only the scoped collection workflow steps may reach the disabled pilot tools', () => {
   const hits = [];
-  // Checkpoint 2 adds standalone offline tools, not a production caller. The
-  // owner separately authorized ONE test-only canary workflow, whose read-only
-  // command/checkout contract is locked by pilot_canary_workflow.test.mjs.
+  const collectionSteps = {
+    'before-publish': {timeout: 45, secrets: ['COLLECTION', 'INGEST']},
+  };
+  const workflowGuard = "        if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' && vars.NFL_SELFLEARN_COLLECTION_MODE == 'record' }}";
+  for (const [workflow, publishStep] of [['daily', 'Commit data/'], ['gameday', 'Commit snapshots + data']]) {
+    const path = join(ROOT, '.github', 'workflows', workflow + '.yml');
+    const workflowText = readFileSync(path, 'utf8');
+    const steps = workflowText.split(/(?=^      - name: )/m);
+    const classified = steps.map((step) => Object.keys(collectionSteps).find(phase => step.includes(
+      `scripts/run_scheduled_collection.py ${phase} ${workflow}.yml`)) ?? step.split('\n')[0]);
+    const commit = classified.indexOf('      - name: ' + publishStep);
+    const receipt = classified.indexOf('      - name: Retain exact published commit for Data CI');
+    assert.ok(classified.indexOf('before-publish') < commit && commit < receipt);
+    assert.equal(receipt, classified.length - 1);
+    for (const [phase, options] of Object.entries(collectionSteps)) {
+      assert.equal(classified.filter(item => item === phase).length, 1);
+      const step = steps[classified.indexOf(phase)].trimEnd().split('\n');
+      assert.deepEqual(step.slice(1), [
+        workflowGuard,
+        '        continue-on-error: true',
+        '        env:',
+        '          NFL_SELFLEARN_COLLECTION_MODE: ${{ vars.NFL_SELFLEARN_COLLECTION_MODE }}',
+        ...options.secrets.map(scope => '          SELFLEARN_NFL_' + scope + '_TOKEN: ${{ secrets.SELFLEARN_NFL_' + scope + '_TOKEN }}'),
+        `        run: timeout ${options.timeout}s python3 -B scripts/run_scheduled_collection.py ${phase} ${workflow}.yml`,
+      ]);
+    }
+  }
+  const retryPath = join('.github', 'workflows', 'selflearning-publication-retry.yml');
+  const retry = readFileSync(join(ROOT, retryPath), 'utf8');
+  assert.match(retry, /workflows: \[daily-pipeline, gameday\]/);
+  assert.match(retry, /github.event.workflow_run.head_repository.id == github.event.repository.id/);
+  assert.match(retry, /github.event.workflow_run.head_branch == 'main'/);
+  assert.match(retry, /vars.NFL_SELFLEARN_COLLECTION_MODE == 'record'/);
+  assert.match(retry, /^permissions:\n  contents: read\n  actions: read$/m);
+  assert.match(retry, /ref: \$\{\{ github.sha \}\}\n          fetch-depth: 0\n          persist-credentials: false/);
+  assert.match(retry, /name: published-data-\$\{\{ github.event.workflow_run.id \}\}-\$\{\{ github.event.workflow_run.run_attempt \}\}/);
+  assert.match(retry, /if: \$\{\{ steps.receipt.outcome == 'success' \}\}/);
+  assert.deepEqual([...retry.matchAll(/^        run: (.+)$/gm)].map(match => match[1]), [
+    'timeout 45s python3 -B scripts/run_scheduled_collection.py recover-published',
+    'timeout 35s python3 -B scripts/run_scheduled_collection.py observe-publication daily.yml',
+  ]);
+  assert.deepEqual([...retry.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
+    ['SELFLEARN_NFL_COLLECTION_TOKEN', 'SELFLEARN_NFL_PUBLICATION_WORKER_TOKEN']);
+  const outcomesPath = join('.github', 'workflows', 'selflearning-outcomes.yml');
+  const outcomes = readFileSync(join(ROOT, outcomesPath), 'utf8');
+  assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_MODE == 'record'/);
+  assert.match(outcomes, /github.repository == 'liddar12\/NFL2026' && github.ref == 'refs\/heads\/main'/);
+  assert.match(outcomes, /workflows: \[daily-pipeline\]/);
+  assert.match(outcomes, /github.event.workflow_run.conclusion == 'success'/);
+  assert.match(outcomes, /github.event.workflow_run.head_repository.id == github.event.repository.id/);
+  assert.match(outcomes, /^permissions:\n  actions: read\n  contents: read$/m);
+  assert.match(outcomes, /path: \$\{\{ runner.temp \}\}\/selflearning-outcomes\/pointer.json\n/);
+  assert.ok(outcomes.indexOf('Retain the application pointer before delivery') < outcomes.indexOf('Apply the current capture'));
+  assert.deepEqual([...outcomes.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
+    ['SELFLEARN_NFL_OUTCOME_INGEST_TOKEN', 'SELFLEARN_NFL_OUTCOME_INGEST_TOKEN']);
+  assert.doesNotMatch(outcomes.split('      - name: Retain the application pointer')[0], /secrets\./);
+  const observerPath = join('.github', 'workflows', 'public-parlay-observation.yml');
+  const observer = readFileSync(join(ROOT, observerPath), 'utf8');
+  assert.match(observer, /workflows: \[daily-pipeline, gameday\]/);
+  assert.match(observer, /vars.NFL_PUBLIC_PARLAY_OBSERVATION_MODE == 'record'/);
+  assert.match(observer, /github.repository == 'liddar12\/NFL2026'/);
+  assert.match(observer, /github.event.workflow_run.conclusion == 'success'/);
+  assert.match(observer, /github.event.workflow_run.head_repository.id == github.event.repository.id/);
+  assert.match(observer, /permissions:\n  actions: read\n  contents: read/);
+  assert.match(observer, /timeout 170s python3 -B scripts\/observe_parlay_offers.py/);
+  assert.match(observer, /published-data-\$\{\{ github.event.workflow_run.id \}\}-\$\{\{ github.event.workflow_run.run_attempt \}\}/);
+  assert.doesNotMatch(observer, /secrets\.|contents: write|git push/);
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
     'run_parlay_feedback.py', 'learning_history_guard.py',
+    'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
+    'export_outcome_capture.py', 'export_capture_application.py',
+    'run_collection_handoff.py', 'run_scheduled_collection.py', 'run_scheduled_outcomes.py',
+    'observe_parlay_offers.py', 'grade_observed_parlays.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection|run_scheduled_outcomes|observe_parlay_offers|grade_observed_parlays/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (offline.has(rel) || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
-      const src = readFileSync(join(ROOT, rel), 'utf8');
+      if (offline.has(rel) || rel === retryPath || rel === outcomesPath || rel === observerPath || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
+      let src = readFileSync(join(ROOT, rel), 'utf8');
+      if (['daily.yml', 'gameday.yml'].some(file => rel === join('.github', 'workflows', file))) {
+        src = src.split(/(?=^      - name: )/m)
+          .filter(step => !Object.keys(collectionSteps).some(phase =>
+            step.includes(`scripts/run_scheduled_collection.py ${phase} ${name}`)))
+          .join('');
+      }
       if (pilotReferences.test(src)) hits.push(rel);
     }
   };

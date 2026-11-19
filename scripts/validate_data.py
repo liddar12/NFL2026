@@ -838,6 +838,28 @@ def check_parlay_coverage(parlays, games, weekly, projections, excluded_ids=()):
     problems = parlay_coverage_problems(parlays, ids, props)
     if problems:
         raise ValidationError("parlay candidate coverage: " + "; ".join(problems))
+    cards = parlays.get("parlays") or []
+    if any("joint_model_prob" in card for card in cards):
+        for card in cards:
+            joint = card.get("joint_model_prob")
+            if type(joint) not in (int, float) or not 0 <= joint <= 1:
+                raise ValidationError("published parlay joint probability missing or invalid")
+            implied = math.prod(leg["implied_prob"] for leg in card["legs"])
+            expected_ev = round(joint / implied - 1, 4) if implied > 0 else -1.0
+            if expected_ev != card["model_ev"]:
+                raise ValidationError("published parlay joint probability disagrees with simulated EV")
+            if card["scope"] == "week" and joint != math.prod(leg["model_prob"] for leg in card["legs"]):
+                raise ValidationError("published week parlay joint probability disagrees with independent legs")
+    if not any("offer_lineage" in card for card in cards):
+        return  # Earlier generated documents carry no lineage.
+    by_scope = {}
+    for card in cards:
+        lineage = card.get("offer_lineage")
+        if not isinstance(lineage, dict) or lineage.get("generated_utc") != parlays.get("updated_utc"):
+            raise ValidationError("published parlay lineage missing or from another generation")
+        incumbent = by_scope.setdefault(card.get("scope"), lineage)
+        if incumbent != lineage:
+            raise ValidationError("published parlay lineage differs within the same scope")
 
 
 def check_no_unplayable_legs(weekly, parlays, leg_pool=None):

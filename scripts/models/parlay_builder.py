@@ -95,6 +95,7 @@ build_parlays drops it before any card or week leg is built.
 Deterministic, stdlib only, reads fixtures.
 """
 
+import inspect
 import itertools
 import json
 import math
@@ -109,6 +110,7 @@ if _REPO_ROOT not in sys.path:
 # R108 — the owner's excluded-games list (config/excluded_games.json). Read by
 # build_parlays, the one entry point every slate build goes through.
 from scripts.excluded_games import PATH as EXCLUDED_GAMES_PATH, is_excluded  # noqa: E402
+from scripts.learning_receipts import fingerprint  # noqa: E402
 
 # The backtest artifact the builder prices from (prop calibration + correlations).
 # Produced by scripts/backtest_parlay.py; verified by `--gate`.
@@ -476,6 +478,7 @@ def _make_parlay(parlay_id, scope, legs, game_id=None, corr=None):
         "parlay_id": parlay_id,
         "scope": scope,
         "legs": [_strip_leg(l) for l in legs],
+        "joint_model_prob": model_p,
         "model_ev": round(ev, 4),
         "confidence_tier": tier,
         "correlation_note": note,
@@ -1242,6 +1245,36 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
     return parlays
 
 
+def published_offer_lineage(calibration_path, generated_utc):
+    """Identify the selector and effective joint inputs for each published scope."""
+    common_selection = [derive_candidate_legs, make_leg, parlay_bet_key, _distinct_cards, build_parlays, is_excluded]
+    game_selection = [build_game_parlays, _rank_game_pairs, same_side_game_pair, *common_selection]
+    week_selection = [build_week_parlays_multi, *common_selection]
+    same, opposing, default = _correlation_table(load_calibration(calibration_path))
+
+    def correlation_rows(table):
+        return sorted((sorted(tags), rho) for tags, rho in table.items())
+
+    game_joint = {
+        "functions": [inspect.getsource(fn) for fn in
+                      (_combined_probs, _pair_rho, _combine_two, _clamp)],
+        "same": correlation_rows(same), "opposing": correlation_rows(opposing), "default": default,
+    }
+    return {
+        "game": {"version": 1, "generated_utc": generated_utc,
+                 "selection_policy_version": fingerprint({"scope": "game", "default_hold": _DEFAULT_HOLD,
+                     "functions": [
+                     inspect.getsource(fn) for fn in game_selection]}),
+                 "joint_model_version": fingerprint({"scope": "game", **game_joint})},
+        "week": {"version": 1, "generated_utc": generated_utc,
+                 "selection_policy_version": fingerprint({"scope": "week", "default_hold": _DEFAULT_HOLD,
+                     "functions": [
+                     inspect.getsource(fn) for fn in week_selection], "leg_counts": WEEK_LEG_COUNTS,
+                     "per_count": WEEK_PER_COUNT}),
+                 "joint_model_version": fingerprint({"scope": "week", "function": inspect.getsource(_combined_probs)})},
+    }
+
+
 def build_parlays_document(game_preds, season, week, as_of_utc,
                            markets_by_game=None, props_by_game=None,
                            calibration_path=DEFAULT_CALIBRATION_PATH,
@@ -1266,6 +1299,9 @@ def build_parlays_document(game_preds, season, week, as_of_utc,
         ),
         "candidate_coverage": coverage,
     }
+    lineage = published_offer_lineage(calibration_path, as_of_utc)
+    for card in doc["parlays"]:
+        card["offer_lineage"] = dict(lineage[card["scope"]])
     ids = [g.get("game_id", "GAME") for g in game_preds if not is_excluded(g.get("game_id"), excluded_path)]
     problems = parlay_coverage_problems(doc, ids, props_by_game or {})
     if problems:

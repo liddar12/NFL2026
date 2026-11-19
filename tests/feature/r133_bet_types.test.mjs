@@ -117,6 +117,16 @@ test('typeLegs keeps only the chosen kinds, one leg per player, open games only'
   assert.equal(openGames(started, 0).length, 0);
 });
 
+test('buildable yardage and TD legs expire without removing moneylines', () => {
+  const expiry = '2026-11-19T22:15:59Z';
+  const snapshot = { ...pool, prop_injury_expires_utc: expiry };
+  const before = typeLegs(snapshot, ALL, games, Date.parse(expiry) - 1);
+  assert.ok(before.some((leg) => leg.kind !== 'ml'));
+  const held = typeLegs(snapshot, ALL, games, Date.parse(expiry));
+  assert.deepEqual(held, before.filter((leg) => leg.kind === 'ml'));
+  assert.deepEqual(typeLegs({ ...snapshot, prop_injury_expires_utc: null }, ALL, games, 0), held);
+});
+
 test('RCA round 2: ALL and RUSHING + MONEYLINE are MIXED, and beat the moneyline-only card', () => {
   const legs = typeLegs(pool, ALL, games, 0);
   for (const n of [2, 4, 7]) {

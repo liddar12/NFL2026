@@ -166,3 +166,48 @@ test('feedback command reports disabled flags without opening an engine or works
     assert.equal(result[key], false, key);
   }
 });
+
+
+test('qualified-jobs upgrade reads approved qualified-shadow history without allowing old execution', () => {
+  run(String.raw`
+OLD_SHADOW = "889e147e84b01c28898f268eb89f91c978ef490f"
+MEASURED_CODE = "sha256:2ea378132a1ac93a2a2a6c0e607174ec819cf1fe6703b40fbd07832a941ea564"
+with tempfile.TemporaryDirectory() as temporary:
+    data = Path(temporary).resolve()
+    artifacts = data / "snapshots" / "learning_feedback"
+    initial = state(1)
+    historical = record(initial, OLD_SHADOW, MEASURED_CODE)
+    point(historical)
+    before = contents()
+    assert feedback.previous(data, artifacts) == (historical, initial)
+    assert contents() == before
+    reject("feedback_exact_engine_commit_required", lambda: feedback.engine(data / "old-engine", OLD_SHADOW))
+    bad = record(initial, OLD_SHADOW, NEW_CODE)
+    point(bad)
+    before = contents()
+    reject("feedback_run_contract_mismatch", lambda: feedback.previous(data, artifacts))
+    assert contents() == before
+`);
+});
+
+test('collection-handoff upgrade preserves qualified-job history and refuses the old engine for execution', () => {
+  run(String.raw`
+reviewed = "5e68953989b95731503d9e909ede7d4279b2a570"
+reviewed_code = "sha256:91085f0c18ed243d9632fa2abafc7d9df6d85677ab88d2040473ced089c4c811"
+with tempfile.TemporaryDirectory() as temporary:
+    data = Path(temporary).resolve()
+    artifacts = data / "snapshots" / "learning_feedback"
+    initial = state(1)
+    old = record(initial, reviewed, reviewed_code)
+    point(old)
+    before = contents()
+    assert feedback.previous(data, artifacts) == (old, initial)
+    assert contents() == before
+    assert not any(name == "selflearn_core" or name.startswith("selflearn_core.") for name in sys.modules)
+    reject("feedback_exact_engine_commit_required", lambda: feedback.engine(data / "old-engine", reviewed))
+    point(record(initial, reviewed, NEW_CODE))
+    before = contents()
+    reject("feedback_run_contract_mismatch", lambda: feedback.previous(data, artifacts))
+    assert contents() == before
+`);
+});

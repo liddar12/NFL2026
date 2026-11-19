@@ -31,6 +31,7 @@ import {
   combineTwo, correlationTable, legFromGame, legFromPool, pairRho, sameSideGamePair,
 } from './parlay-math.js';
 import { breakEven, pctText } from './atd-cards.js';
+import { propInjuryDeadline } from './prop-freshness.js';
 
 export const BET_TYPES = [
   ['atd', 'ANYTIME TD', 'anytime_td'],
@@ -271,7 +272,8 @@ export function typeLegs(pool, types, games, now = Date.now()) {
   const open = new Set(openGames(games, now).map((g) => String(g.game_id)));
   const out = [];
   const keep = (leg) => open.has(String(leg.game_id));
-  for (const row of (pool && pool.players) || []) {
+  const propsFresh = propInjuryDeadline(pool) > now;
+  for (const row of (propsFresh && pool?.players) || []) {
     if (!want.has(row.market)) continue;
     const rung = pickRung(row.rungs);
     if (!rung) continue;
@@ -281,7 +283,7 @@ export function typeLegs(pool, types, games, now = Date.now()) {
     if (row.availability) leg.availability = row.availability;
     if (keep(leg)) out.push(leg);
   }
-  if (want.has('anytime_td')) {
+  if (propsFresh && want.has('anytime_td')) {
     for (const row of (pool && pool.atd_legs) || []) {
       const rung = (row.rungs || [])[0];
       if (!rung) continue;

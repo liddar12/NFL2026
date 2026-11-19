@@ -26,13 +26,30 @@ if str(ROOT)not in sys.path:sys.path.insert(0,str(ROOT))
 from scripts import export_learning as export, capture_outcome_evidence as capture  # noqa: E402
 from scripts.learning_history_guard import _git  # noqa: E402
 
-ENGINE_COMMIT="889e147e84b01c28898f268eb89f91c978ef490f"
+ENGINE_COMMIT="17c6644537d78628442ef6adf25203756dfcc368"
 # Read-only compatibility after a pin upgrade. These fingerprints were computed
 # by selflearn_core.learning_jobs.code_identity() through engine() on the clean
 # pinned checkout. The digest includes Python sources, interpreter build, machine
 # and system. Unlisted historical runtimes fail closed until independently
 # verified and added here. A run record cannot authorize another runtime.
 APPROVED_HISTORICAL_ENGINE_CODE_IDS={
+    "5fd6475cc1895f0a7f63132dfae58c7e0729f458":frozenset({
+        "sha256:e4b1683bcffc5354858c24a594655f1e4cb93a29d20d0b9ea16021e5d474bbb9",  # CPython 3.12.9 / Darwin arm64
+        "sha256:c4d1d8fe99a59827c001c9da589b1bc1c8d4e649e91d3cc0f6c426811a312448",  # uv CPython 3.12.14 / Darwin arm64
+    }),
+    "d40b9f08dcfe3633dedab31d983bf99bb9b610d8":frozenset({
+        "sha256:e11a0fbbe9416e09e581ef8e20a4620034b8a4b4d0c323722f85ef84d27f50d1",  # CPython 3.12.9 / Darwin arm64
+        "sha256:9e0cb7bd48fc0cc70fe2ecbf27355810217dc865101f4bd384849514a25eca5a",  # uv CPython 3.12.14 / Darwin arm64
+    }),
+    "0fc6b1871bc6f06117adb42d1b72ff07f6c1a51a":frozenset({
+        "sha256:cce2376870ad8e8c2e116bd514a01f587242e3100de4c29473c76624b8d7e9c7",  # uv CPython 3.11.16 / Darwin arm64
+    }),
+    "5e68953989b95731503d9e909ede7d4279b2a570":frozenset({
+        "sha256:91085f0c18ed243d9632fa2abafc7d9df6d85677ab88d2040473ced089c4c811",  # uv CPython 3.11.16 / Darwin arm64
+    }),
+    "889e147e84b01c28898f268eb89f91c978ef490f":frozenset({
+        "sha256:2ea378132a1ac93a2a2a6c0e607174ec819cf1fe6703b40fbd07832a941ea564",  # uv CPython 3.11.16 / Darwin arm64
+    }),
     "69d37eb0d171f7999b94f706748f4635f9c58606":frozenset({
         "sha256:f5b5a90f07497d28d64e0c782695a566269443fb5a2052d3f1811603a7b1da89",  # uv CPython 3.11.16 / Darwin arm64
     }),

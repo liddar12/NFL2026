@@ -796,11 +796,16 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
     # definition, imported from the archive writer rather than re-hashed here, so
     # the row and the archived card meet on the same key; an archive card already
     # stamped keeps its own id.
-    return {"parlay_id": parlay.get("parlay_id"),
+    out = {"parlay_id": parlay.get("parlay_id"),
             "card_id": parlay.get("card_id") or parlay_card_id(parlay),
             "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
             "result": pres, "bucket": bucket, "legs": legs_out}
+    if "joint_model_prob" in parlay:
+        out["joint_model_prob"] = parlay["joint_model_prob"]
+    if "offer_lineage" in parlay:
+        out["offer_lineage"] = parlay["offer_lineage"]
+    return out
 
 
 def fully_excluded(row, excluded):
@@ -812,7 +817,7 @@ def fully_excluded(row, excluded):
         l.get("game_id") is not None and str(l["game_id"]) in excluded for l in legs)
 
 
-def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=None):
+def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=None, *, require_stable_id=False):
     """R106 — leg -> (result, actual, reason) from FINAL scores, the nflverse stat
     line and the snap sheet, through the MY-cards graders (one rule for every
     card). The player's full name, team and line come from the leg-ledger row when
@@ -844,7 +849,8 @@ def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=N
                                    "selection": sel, "team": leg.get("team") or row.get("team") or team,
                                    "gsis_id": leg.get("gsis_id") or row.get("gsis_id"),
                                    "season": leg.get("season") or row.get("season"),
-                                   "line": line}, week, by_week, snaps, context)
+                                   "line": line}, week, by_week, snaps, context,
+                                  require_stable_id=require_stable_id)
         return None
     return grade
 

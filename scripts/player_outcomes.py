@@ -109,7 +109,7 @@ def _row_id(row, ids):
     return ids.get("pfr", {}).get(str(row.get("pfr_player_id") or ""), set())
 
 
-def _identity(leg, rows, ids):
+def _identity(leg, rows, ids, *, require_stable_id=False):
     """Return a unique week row, without filtering away contradictory fixtures."""
     pos = _POS.get(leg.get("position"), leg.get("position"))
     all_rows = rows or []
@@ -125,6 +125,8 @@ def _identity(leg, rows, ids):
         mapped = {str(explicit)}
     if len(mapped) > 1:
         return None, "identity_conflict"
+    if require_stable_id and not mapped:
+        return None, "identity_unverified"
     if mapped and any(_row_id(r, ids) == mapped and pos and r.get("pos")
                       and r["pos"] != pos for r in all_rows):
         return None, "identity_position_conflict"
@@ -137,6 +139,8 @@ def _identity(leg, rows, ids):
         # A source without identifiers permits name fallback, never a conflicting ID.
         if not hits:
             hits = [r for r in exact if not _row_id(r, ids)]
+            if hits and require_stable_id:
+                return None, "identity_unverified"
     else:
         hits = exact
     if len(hits) > 1:
@@ -192,7 +196,7 @@ def event_reason(row, game):
     return None
 
 
-def player_event_facts(leg, week, stat_rows, td_rows, snaps_week, ctx):
+def player_event_facts(leg, week, stat_rows, td_rows, snaps_week, ctx, *, require_stable_id=False):
     """Facts for exactly this player and fixture; unknown evidence stays unknown."""
     def pending(reason):
         return {"y": None, "td": None, "reason": reason}
@@ -212,9 +216,10 @@ def player_event_facts(leg, week, stat_rows, td_rows, snaps_week, ctx):
     if stat_rows is None and td_rows is None:
         return pending("week_not_published")
     ids = ctx.get("ids") or identity_maps()
-    stat, sy = _identity(leg, stat_rows, ids)
-    td, st = _identity(leg, td_rows, ids)
-    snap, ss = _identity(leg, (snaps_week or {}).get("rows"), ids)
+    stat, sy = _identity(leg, stat_rows, ids, require_stable_id=require_stable_id)
+    td, st = _identity(leg, td_rows, ids, require_stable_id=require_stable_id)
+    snap, ss = _identity(leg, (snaps_week or {}).get("rows"), ids,
+                         require_stable_id=require_stable_id)
     for why in (sy, st, ss):
         if why not in (None, "no_stat_line"):
             return pending(why)

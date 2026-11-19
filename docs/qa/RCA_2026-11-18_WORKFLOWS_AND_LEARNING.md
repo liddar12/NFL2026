@@ -1,12 +1,104 @@
 # Workflow reliability and shared learning release roadmap
 
-Revision 4. November 19, 2026, 8:53 a.m. CST (America/Chicago). Codex owns this work.
+Revision 6. November 19, 2026, 9:03 a.m. CST (America/Chicago). Codex owns this work.
 
-## Current checkpoint
+## Morning verification — November 19
+
+Main is now `539059eea490e8bcb2a270e5c33839929e25d0bd`: two more commits
+changed 49 data files and no source since `640df164`. Latest
+[Data CI run 44504506061](https://github.com/liddar12/NFL2026/actions/runs/44504506061)
+still fails referee completeness, 124 MY leg occurrences, and the same two IR
+browser tests. The OL-count test now passes on refreshed provider data; the local
+partial-coverage fix still has not shipped. The live 4:17:02 a.m. CST pool retains
+`live_adjustment: null`, `held: no adopted correction`; main's pilot is disabled.
+
+Reconciliation source `3f38893237180e7392a88dddedd32cd348691a01` includes the
+worker bound, OL fix and captured review validation, then merges main through
+`539059ee`. Its full gate passed all eight steps at 9:01 a.m. CST. All 2,337
+feature tests passed, and browser E2E passed 364 tests with four existing
+data-dependent skips. That exact grading release is now merged into the disabled
+collection branch. Integrated and production acceptance remain open.
+
+The offline semantic audit passed: all 302 receipt/ledger files (37 offer books)
+and 150 FINAL score pairs remain intact; 274,625 leg comparisons have zero
+mismatches. Corrections relative to published main are explicit: nine MY and four
+ATD formerly void cards become pending because their player/game identity cannot
+be verified. Another 57 MY and eight ATD cards have corrected outcome fields.
+Original terms remain unchanged; all settled and pending reductions match the
+immutable offered legs. These are grading corrections, not a model-accuracy gain.
+
+No new source was pushed, deployed or activated. See the readable local report
+`/Users/jliddar/code/reports/github-learning-rca-20261118/report.html` and evidence
+`nfl-release-reconcile-grading-transitions-20261118.json`.
+
+## Latest incident update — November 18, 4:45 p.m. CST
+
+The two owner-supplied Data CI runs,
+[44374429027](https://github.com/liddar12/NFL2026/actions/runs/44374429027)
+and [44408445217](https://github.com/liddar12/NFL2026/actions/runs/44408445217),
+repeat the same five failed tests: referee completeness (86 absent labels),
+MY grading parity (124 repeated card-leg occurrences), OL starter count
+(159 rather than 160), and the two IR availability browser fixtures.
+Both browser runs passed 346, failed two, skipped four and left 16 not run.
+The reporting job posts its comment successfully and intentionally exits 1.
+It is not an independent infrastructure failure.
+
+Main advanced from `ff98e60f` to `640df1640d139d6cb1f7d95f0eeea38843d65d63`
+with one commit changing 50 data files and no source files. Upstream daily run
+44407503845 succeeded, including contract validation and publication. Thus
+refresh success and post-publication semantic failure can coexist. No new local
+repair reached production in either run.
+
+The new OL failure is reproduced from the exact source snapshot. Pittsburgh lists
+Brock Hoffman (GSIS `00-0037336`, ESPN `4241087`) as both starting LG and RG.
+Deduplicating correctly yields four unique players. Local fix `9f966ce6` retains
+that fact, reports one unknown starter, preserves known injury warnings and never
+promotes a backup to fill the gap. All 41 focused checks passed; production inputs
+reproduce the previous document except the explicit coverage field and build clock.
+The rule now reconciles counts and names rather than assuming the provider always
+supplies exactly 160 distinct starters. This annotation changes no prediction.
+
+The initial expanded full gate is no longer running. It ended with four subprocess
+failures and an unfinished r88 test, with no complete acceptance result. Worker
+bound `1c6c8b7a` passed nine focused tests without changing any timeout or assertion.
+The isolated grading release `build/release-reconcile-20261118` subsequently
+passed its full gate after reconciliation with `539059ee` and replay of frozen
+captured inputs. It remains local.
+
+At 4:37 p.m. CST the public pool was Week 11, generated 4:05:10 p.m. CST, with
+historical `calibration_adopted: true` but `live_adjustment: null` and
+`held: no adopted correction`. Main's shared pilot stays disabled/shadow at
+`aacb19c7`. The online foundation and historical NFL calibration are distinct from
+an operational shared feedback loop.
+
+The separate disabled collection checkpoint `96ad2a6a` integrates exact pinned
+engine `5e689539`, frozen forecast delivery, publisher-receipt-bound registration,
+and roster-aware outcome clients. Pin/history guards passed 71 tests; outcome
+clients passed 31 paired tests; engine delivery/application/labels passed 64;
+publication queue and local ASGI integration passed 18 and 10 respectively.
+Local intake accepted 1,008 actual-pool receipts and replay required zero transport
+calls. This is local adapter evidence, not hosted persistence or public observation.
+See [the collection checkpoint](../pilot/COLLECTION_DELIVERY_CHECKPOINT_2026-11-18.md).
+
+Release order: verified NFL grading/publication repair; paired engine and durable
+collection; complete prospective forecast/publication/outcome/evaluation cycle;
+then measured correction adoption. Preserve model evaluation exclusions and
+original pre-kickoff clocks. Assess joint-card calibration and correlated losses
+separately from individual yardage-probability improvements. Only a tested,
+explicitly approved correction may change served probabilities. No new betting
+accuracy gain is demonstrated yet.
+
+Owner involvement remains concrete release/cloud-change approval, administrative
+access repair if the Supabase connector still cannot verify migration state,
+verification of Henry's service connections, and the first scoped adoption decision.
+There is no routine manual outcome grading step. Do not replace missing official
+inactive evidence with ESPN's observation-only didNotPlay list.
+
+## Earlier checkpoint (retained evidence)
 
 ### NFL release-candidate reconciliation
 
-The current local candidate reconciles the coverage branch with main at
+The tested grading release reconciled the coverage branch with main at
 `539059ee`. It carries forward 42 additional Week 11 MY offers and two
 additional ATD game offers. The main line report uses the November 19 nflverse
 snapshot and identifies all five Pittsburgh starters. Historical grading
@@ -36,8 +128,7 @@ and 364 browser tests. The data-contract and four feature failures shared one
 cause. The captured review reported unknown refit receipt membership, while
 the validator still expected matched counts to prove membership. The current
 candidate validates that review against captures and lock snapshots while
-preserving the unknown membership. Its full gate and production verification
-remain open.
+preserving the unknown membership. Its full gate passed on `3f388932`.
 
 The new NFL source is `479ac73bcc14dbe5db0cc52f8de1f11cd903f68f` on
 `build/grading-coverage-20261118`. This checkpoint adds offer-derived grading

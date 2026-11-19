@@ -54,6 +54,8 @@ PARAMETERS = {
     "version": 1,
     "recheck_seconds_before_kickoff": 90 * 60,      # T-90 (#175 PROFILES)
     "evidence_lease_seconds": 15 * 60,              # #175 inactive_observation_max_seconds
+    "prop_collections": ["players", "atd_legs"],
+    "conflicting_team_identity": "withhold_player_for_game",
 }
 POLICY_ID = "sha256:" + hashlib.sha256(json.dumps(
     {"profile": PROFILE, **PARAMETERS}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -151,10 +153,10 @@ def player_state(espn_id, team, game, now, evidence, registry=OFFICIAL_SOURCES):
         return "unknown_or_stale", "kickoff_unknown"
     if now >= kick:
         return "closed", "kicked_off"
-    if now < check:
-        return "provisional", "before_checkpoint"
     if team not in (game.get("home"), game.get("away")):
         return "unknown_or_stale", "team_not_in_game"
+    if now < check:
+        return "provisional", "before_checkpoint"
     verdicts, refusals = set(), []
     for ev in evidence or []:
         if type(ev) is not dict or ev.get("team") != team:
@@ -180,34 +182,61 @@ def player_state(espn_id, team, game, now, evidence, registry=OFFICIAL_SOURCES):
     return "unknown_or_stale", (sorted(set(refusals))[0] if refusals else "no_evidence")
 
 
+def _pool_rows(pool, collection):
+    rows = pool.get(collection)
+    return rows if type(rows) is list else []
+
+
+def _identity(player):
+    team = player.get("team")
+    return (str(player.get("gsis_id") or ""), str(player.get("game_id")),
+            team if type(team) is str else None)
+
+
+def _pool_fingerprint(pool):
+    body = json.dumps(pool, sort_keys=True, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(body).hexdigest()
+
+
 def assess(pool, games, now, evidence_by_game, registry=OFFICIAL_SOURCES):
     """Shadow assessment of a leg pool: every MY prop rung's state at `now`.
 
-    `pool` is data/leg_pool.json-shaped ({players:[{gsis_id, team, game_id,
-    rungs:[...]}]}); `games` the week's schedule rows. Returns a document with
-    per-game checkpoints and per-player states, and the rung counts it would
+    `pool` is data/leg_pool.json-shaped with yardage and anytime-TD rows.
+    `games` contains the week's schedule rows. Returns a document with
+    per-game checkpoints and per-row states, and the rung counts it would
     withhold. It does NOT modify the pool."""
-    games = [g for g in (games or []) if type(g) is dict]
+    pool = pool if type(pool) is dict else {}
+    games = [g for g in games if type(g) is dict] if type(games) in (list, tuple) else []
     by_game = {str(g.get("game_id")): g for g in games}
     evidence_by_game = evidence_by_game if type(evidence_by_game) is dict else {}
     players, counts = [], {s: 0 for s in STATES}
     withheld = offered = malformed = 0
-    for p in (pool or {}).get("players") or []:
+    rows = [(collection, row) for collection in PARAMETERS["prop_collections"]
+            for row in _pool_rows(pool, collection)]
+    teams_by_player_game = {}
+    for _, player in rows:
+        if type(player) is dict:
+            pid, gid, team = _identity(player)
+            game = by_game.get(gid)
+            if pid and team and game and team in (game.get("home"), game.get("away")):
+                teams_by_player_game.setdefault((pid, gid), set()).add(team)
+    for collection, p in rows:
         if type(p) is not dict:
-            malformed += 1          # reported, never fatal to the other players
+            malformed += 1
             continue
-        gid = str(p.get("game_id"))
+        pid, gid, team = _identity(p)
         game = by_game.get(gid)
-        pid = str(p.get("gsis_id") or "")
         espn_id = pid[5:] if pid.startswith("espn-") and _ID.fullmatch(pid[5:]) else ""
         if game is None:
             state, reason = "unknown_or_stale", "game_unknown"
         else:
             ev = evidence_by_game.get(gid)
-            state, reason = player_state(espn_id, p.get("team"), game, now,
+            state, reason = player_state(espn_id, team, game, now,
                                          ev if type(ev) is list else [], registry)
             # an id-less player can never be found on an official list
-            if not espn_id and state == "unknown_or_stale" and reason != "kickoff_unknown":
+            if state != "closed" and len(teams_by_player_game.get((pid, gid), ())) > 1:
+                state, reason = "unknown_or_stale", "conflicting_player_team"
+            elif not espn_id and state == "unknown_or_stale" and reason in ("no_evidence", "not_on_official_lists"):
                 reason = "player_id_not_espn"
         counts[state] += 1
         rungs = p.get("rungs")
@@ -216,11 +245,12 @@ def assess(pool, games, now, evidence_by_game, registry=OFFICIAL_SOURCES):
             offered += n
         else:
             withheld += n
-        players.append({"gsis_id": pid, "game_id": gid, "team": p.get("team"),
+        players.append({"gsis_id": pid, "game_id": gid, "team": team, "collection": collection,
                         "state": state, "reason": reason})
     return {
         "version": 1, "kind": "nfl.inactive_confirmation_assessment.v1",
         "profile": PROFILE, "policy_id": POLICY_ID, **{"parameters": PARAMETERS},
+        "pool_id": _pool_fingerprint(pool),
         "checked_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "registered_official_sources": sorted(registry),
         "games": [{"game_id": str(g.get("game_id")), "kickoff_utc": g.get("kickoff_utc"),
@@ -235,10 +265,14 @@ def assess(pool, games, now, evidence_by_game, registry=OFFICIAL_SOURCES):
 def withhold(pool, assessment):
     """The pool a pilot would serve: rungs of non-offerable players removed.
     Returns a new document; the input is not mutated. Not called in production."""
-    keep = {(p["gsis_id"], p["game_id"]) for p in assessment["players"] if p["state"] in OFFERABLE}
+    if assessment.get("pool_id") != _pool_fingerprint(pool):
+        raise ValueError("inactive_assessment_pool_mismatch")
+    keep = {(p["collection"], *_identity(p)) for p in assessment["players"] if p["state"] in OFFERABLE}
     out = dict(pool)
-    out["players"] = [p for p in pool.get("players") or []
-                      if type(p) is dict and (str(p.get("gsis_id") or ""), str(p.get("game_id"))) in keep]
+    for collection in PARAMETERS["prop_collections"]:
+        if collection in pool:
+            out[collection] = [p for p in _pool_rows(pool, collection)
+                               if type(p) is dict and (collection, *_identity(p)) in keep]
     return out
 
 

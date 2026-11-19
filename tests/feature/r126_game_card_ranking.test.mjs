@@ -22,6 +22,82 @@ import { dirname, resolve } from 'node:path';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
+test('published offer lineage is scope-specific and survives archive and grading', () => {
+  const output = execFileSync('python3', ['-B', '-c', `
+import copy, json, math
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from scripts.models import parlay_builder as pb
+from scripts.build_parlay_archive import archive_doc, _parse_utc
+from scripts.build_review import review_parlay
+from scripts.validate_data import check_parlay_coverage, validate_against_schema, ValidationError
+
+games=[dict(game_id=str(i),home=f'H{i}',away=f'A{i}',probs=dict(home=.7,away=.3)) for i in range(3)]
+at='2026-10-17T12:00:00Z'
+later='2026-10-17T13:00:00Z'
+kickoff='2026-10-17T14:00:00Z'
+pool=dict(games=games)
+with TemporaryDirectory() as temp:
+    first, second = (Path(temp) / f'{i}.json' for i in (1,2))
+    calibration={'correlations':{'pairs':[{'key':'moneyline|rb_rush_yds','rho':.1}]}}
+    first.write_text(json.dumps(calibration))
+    calibration['correlations']['pairs'][0]['rho']=.2
+    second.write_text(json.dumps(calibration))
+    original=pb.build_parlays_document(games,2026,6,at,calibration_path=str(first))
+    latest=pb.build_parlays_document(games,2026,6,later,calibration_path=str(second))
+    default_versions=pb.published_offer_lineage(str(first),at)
+    changed=pb.published_offer_lineage(str(second),at)
+    assert default_versions['week']==changed['week']
+    assert default_versions['game']['joint_model_version']!=changed['game']['joint_model_version']
+    assert default_versions['game']['selection_policy_version']==changed['game']['selection_policy_version']
+    assert [{k:v for k,v in c.items() if k!='offer_lineage'} for c in original['parlays']] == pb.build_parlays(games,calibration_path=str(first))
+    for card in original['parlays']:
+        assert card['offer_lineage']==default_versions[card['scope']]
+        if card['scope']=='week':
+            assert card['joint_model_prob']==math.prod(leg['model_prob'] for leg in card['legs'])
+    raw=[pb.make_leg('moneyline','H0 ML',.723),pb.make_leg('rb_rush_yds','Runner',.681)]
+    exact, comparison=pb._combined_probs(raw,correlated=True)
+    pair=pb._make_parlay('test','game',raw,game_id='0')
+    assert pair['joint_model_prob']==exact
+    assert pair['joint_model_prob']!=(1+pair['model_ev'])*comparison
+    def validate(doc, name):
+        validate_against_schema(doc,json.loads(Path(f'data/contracts/{name}.schema.json').read_text()),name)
+    validate(original,'parlays')
+    check_parlay_coverage(original,pool,{}, {})
+    changed_probability=copy.deepcopy(original)
+    changed_probability['parlays'][0]['joint_model_prob']=0
+    try:
+        check_parlay_coverage(changed_probability,pool,{}, {})
+    except ValidationError as exc:
+        assert 'joint probability disagrees' in str(exc), exc
+    else:
+        raise AssertionError('mismatched published probability was accepted')
+    unknown=copy.deepcopy(original)
+    unknown['parlays'][0].pop('offer_lineage')
+    try:
+        check_parlay_coverage(unknown,pool,{}, {})
+    except ValidationError as exc:
+        assert 'lineage' in str(exc), exc
+    else:
+        raise AssertionError('partially stamped generation was accepted')
+    start=lambda card: _parse_utc(kickoff)
+    filed,_=archive_doc(original,None,False,at,start)
+    frozen,_=archive_doc(latest,filed,False,kickoff,start)
+    validate(frozen,'parlays_archive')
+    kept=next(c for c in frozen['parlays'] if c['scope']=='game')
+    assert kept['offer_lineage']['generated_utc']==at
+    reviewed=review_parlay(kept,6,{})
+    assert reviewed['offer_lineage']==kept['offer_lineage']
+    assert reviewed['joint_model_prob']==kept['joint_model_prob']
+    original_game=next(c for c in original['parlays'] if c['parlay_id']==kept['parlay_id'])
+    assert kept['joint_model_prob']==original_game['joint_model_prob']
+    legacy={k:v for k,v in kept.items() if k!='offer_lineage'}
+    assert 'offer_lineage' not in review_parlay(legacy,6,{})
+    print('lineage validated without changing cards')
+`], { cwd: ROOT, encoding: 'utf8' });
+  assert.match(output, /lineage validated without changing cards/);
+});
+
 const PY = `
 import json, sys, itertools
 sys.path.insert(0, ".")

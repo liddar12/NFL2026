@@ -80,6 +80,8 @@ import {
   loadJson, getMyCardScores, getPlayerProjections, getPlayerWeekly, getScheduleFull,
   getJointBacktest,
 } from '../data.js';
+import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
+import { propInjuryDeadline, PROP_INJURY_HOLD } from '../prop-freshness.js';
 import { simulateMoney, simulationBreakdown } from '../parlay-simulation.js';
 import {
   combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
@@ -156,6 +158,8 @@ export function poolLegs(pool) {
       leg.label = row.player;
       leg.mu = row.mu;
       leg.line = rung.line;
+      leg.direction = rung.learning_receipt?.direction ?? rung.direction;
+      leg.comparison_operator = rung.learning_receipt?.comparison_operator ?? rung.comparison_operator;
       leg.position = row.position;
       // R77 — a QUESTIONABLE player stays in the pool at his full price (Q is
       // priced + labelled; DOUBTFUL and worse never reach the pool). The flag
@@ -843,11 +847,28 @@ function paintRecord(el) {
 
 function paint(el) {
   const list = el.querySelector('#mp-list');
+  const riskHost = el.querySelector('#mp-shared-risk');
+  const wasRiskOpen = riskHost?.querySelector('details')?.open ?? false;
+  if (riskHost) {
+    riskHost.hidden = true;
+    riskHost.innerHTML = '';
+  }
+  state.shown = [];
   const seedBox = el.querySelector('#mp-seeds');
   const dialBox = el.querySelector('.mp-dial');
   // R89 — the upcoming legs are read ONCE per paint: the card search needs them,
   // and so does the suggestion list, which marks every seed that has none.
-  const eligible = upcomingLegs(state.legs || [], state.games || []);
+  const now = Date.now();
+  const propsFresh = propInjuryDeadline(state.pool) > now;
+  const available = propsFresh ? state.legs : state.legs?.filter((leg) =>
+    leg.market === 'moneyline' || leg.market === 'spread');
+  const eligible = upcomingLegs(available || [], state.games || [], now);
+  const freshness = el.querySelector('#mp-freshness');
+  if (freshness) {
+    freshness.hidden = propsFresh;
+    if (propsFresh) freshness.removeAttribute('role');
+    else freshness.setAttribute('role', 'status');
+  }
   state.live = liveSeedIds(eligible);
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
@@ -873,7 +894,7 @@ function paint(el) {
     cards = buildCards(dialLegs(eligible, target), state.seeds, state.table);
   } else {
     const n = state.td.legs;
-    const atdUp = upcomingLegs(state.atdLegs || [], state.games || []);
+    const atdUp = propsFresh ? upcomingLegs(state.atdLegs || [], state.games || [], now) : [];
     const { legs, maxNonAtd } = tdLegsFor(state.td.mode, n, atdUp, dialLegs(eligible, target));
     const maxPerGame = tdMaxPerGame(state.td.mode, state.verdict);
     cards = buildCards(legs, state.seeds, state.table,
@@ -887,8 +908,8 @@ function paint(el) {
   }
   if (!cards.length) {
     // R89 — per seed, the game and its state, instead of one fixed sentence.
-    list.innerHTML = `<div class="state">${esc(emptyReason(state.seeds, state.legs,
-      state.games, state.pool && state.pool.week))}</div>`;
+    list.innerHTML = `<div class="state">${esc(emptyReason(state.seeds, available,
+      state.games, state.pool && state.pool.week, now))}</div>`;
     return;
   }
   // The list is built as leg-count PAIRS; the eyebrow says so, once per band,
@@ -903,6 +924,12 @@ function paint(el) {
     }
     html.push(renderCard(card, i));
   });
+  if (riskHost) {
+    riskHost.innerHTML = renderPortfolioRisk(summarizePortfolio(cards, state.games, state.pool?.week));
+    riskHost.hidden = !riskHost.innerHTML;
+    const details = riskHost.querySelector('details');
+    if (details) details.open = wasRiskOpen;
+  }
   list.innerHTML = html.join('');
   // R110 — I BET THIS on every card; the sheet (app/views/mybets.js) loads on the tap.
   state.shown = cards;
@@ -995,7 +1022,8 @@ export default async function mountMyParlays(el) {
       + `<span class="est">ESTIMATE</span></div>`
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
-    + '<div id="mp-list" class="card-list"></div>';
+    + `<div class="state" id="mp-freshness" hidden>${PROP_INJURY_HOLD}</div>`
+    + '<div id="mp-shared-risk" hidden></div><div id="mp-list" class="card-list"></div>';
   const mpList = el.querySelector('#mp-list');
   if (mpList) mpList.addEventListener('click', onBetTap);
 
@@ -1213,10 +1241,12 @@ export default async function mountMyParlays(el) {
     state.verdict = v || null;
     if (el.isConnected && state.td.mode !== 'any') paint(el);
   });
-  // Recheck at the next kickoff even when the tab stays open in the foreground.
+  // Recheck open cards at kickoff or when the injury evidence expires.
   let timer;
   const scheduleCutoff = () => {
-    const next = Math.min(...state.games.map((g) => Date.parse(g.kickoff_utc)).filter((t) => t > Date.now()));
+    const now = Date.now();
+    const next = Math.min(...[propInjuryDeadline(state.pool), ...state.games.map((g) => Date.parse(g.kickoff_utc))]
+      .filter((t) => t > now));
     if (Number.isFinite(next)) timer = setTimeout(() => {
       if (el.isConnected) { paint(el); scheduleCutoff(); }
     }, Math.min(next - Date.now() + 25, 2147483647));

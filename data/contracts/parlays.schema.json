@@ -67,6 +67,18 @@
           "correlation_note"
         ],
         "properties": {
+          "joint_model_prob": {"type": "number", "minimum": 0, "maximum": 1, "description": "Exact pregame probability of every published leg hitting."},
+          "offer_lineage": {
+            "type": "object", "additionalProperties": false,
+            "description": "Producer versions for this exact generated card, preserved on freeze. Legacy cards omit it.",
+            "required": ["version", "generated_utc", "selection_policy_version", "joint_model_version"],
+            "properties": {
+              "version": {"type": "integer", "enum": [1]},
+              "generated_utc": {"type": "string", "minLength": 1},
+              "selection_policy_version": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "joint_model_version": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+            }
+          },
           "parlay_id": {
             "type": "string",
             "description": "Stable parlay identifier."

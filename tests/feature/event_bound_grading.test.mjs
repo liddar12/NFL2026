@@ -89,6 +89,284 @@ emit({"fact": facts(leg, stat_rows, snap_rows),
   assert.equal(r.receipt.team, 'CLE');
 });
 
+test('retained published grades follow exact terms even when two versions share a rank', () => {
+  const r = py(`
+from scripts.grade_observed_parlays import grade_cards
+from scripts.observe_parlay_offers import classify_offers
+kickoff='2026-11-09T18:00:00Z'
+scheduled=[dict(g, status='STATUS_SCHEDULED', kickoff_utc=kickoff) for g in games]
+schedule=dict(season=2026,games=scheduled)
+slate=dict(season=2026,week=week,updated_utc='2026-11-08T18:00:00Z',parlays=[
+    dict(parlay_id='rank-1',scope='game',game_id=leg['game_id'],legs=[leg]),
+    dict(parlay_id='rank-1',scope='game',game_id=leg['game_id'],legs=[
+        dict(leg,line=89.5,selection='A. Estime 90+ rush yds')]),
+    dict(parlay_id='rank-1',scope='game',game_id=games[1]['game_id'],legs=[
+        dict(market='moneyline',selection='MIN ML',side='home')])])
+refs=classify_offers(slate,schedule,'2026-11-09T17:00:00Z')
+observed=[dict(g,final=True,observed_utc='2026-11-09T23:00:00Z',**finals[g['game_id']]) for g in scheduled]
+observed[1]['away']='NYJ'
+evidence=dict(season=2026,week=week,cards=refs)
+emit(grade_cards(evidence,slate,schedule,observed,[stats],[snap,cle_sheet,no_sheet],roster))
+`);
+  assert.deepEqual(r.cards.map(c => c.result), ['full_hit', 'loss', 'pending']);
+  assert.equal(new Set(r.cards.map(c => c.offer_sha256)).size, 3);
+  assert.deepEqual(r.cards.slice(0,2).map(c => c.legs[0].actual), [72,72]);
+  assert.equal(r.cards[2].legs[0].reason, 'final_fixture_mismatch');
+  assert.deepEqual(r.by_scope.game, { full_hit: 1, loss: 1, pending: 1 });
+});
+
+test('published calibration scores only the recorded probability of the original full card', () => {
+  const result = py(`
+from scripts.grade_observed_parlays import summarize_published_calibration
+
+cards = [dict(joint_model_prob=p) for p in (.6,.25,.4,.3,None)]
+cards[-1] = dict(model_ev=.1,legs=[dict(model_prob=.8,implied_prob=.5)])
+references = [dict(offer_sha256=str(i),pre_kickoff_observed=True) for i in range(len(cards))]
+cases = [
+    ('game',[('A','hit'),('A','hit')]), ('game',[('A','miss'),('A','hit')]),
+    ('week',[('A','miss'),('B','pending')]), ('week',[('A','hit'),('B','void')]),
+    ('game',[('A','hit'),('A','hit')]),
+]
+grades = [dict(offer_sha256=str(i),scope=scope,legs=[dict(game_id=gid,outcome=o) for gid,o in terms])
+          for i,(scope,terms) in enumerate(cases)]
+emit(summarize_published_calibration(dict(cards=references),dict(parlays=cards),grades))
+`);
+  assert.equal(result.total.eligible_offers, 5);
+  assert.equal(result.total.recorded_joint_probability_count, 4);
+  assert.equal(result.total.all_legs_binary_count, 3);
+  assert.equal(result.total.scored_count, 2);
+  assert.deepEqual(result.total.exclusions, {
+    unresolved_leg: 1, void_leg: 1, missing_recorded_joint_probability: 1,
+  });
+  assert.equal(result.total.expected_full_hits, .85);
+  assert.equal(result.total.observed_full_hits, 1);
+  assert.ok(Math.abs(result.total.brier - ((.6 - 1) ** 2 + .25 ** 2) / 2) < 1e-12);
+  assert.ok(Math.abs(result.total.log_loss + (Math.log(.6) + Math.log(.75)) / 2) < 1e-12);
+  assert.equal(result.by_scope.week.brier, null);
+  assert.equal(result.by_scope_and_leg_count[0].leg_count, 2);
+  assert.equal(result.by_scope.game.max_scored_card_share_one_game, 1);
+});
+
+test('refresh series keeps the first public terms despite reordering, repricing and repeated input', () => {
+  const result = py(`
+from hashlib import sha256
+from pathlib import Path
+from runpy import run_path
+from subprocess import check_output
+from tempfile import TemporaryDirectory
+from scripts.grade_observed_parlays import evaluate_series
+from scripts.learning_receipts import fingerprint
+from scripts.observe_parlay_offers import classify_offers
+from scripts.capture_outcome_evidence import save_capture
+
+fixture = run_path('tests/fixtures/week6_outcomes.py')
+season, week, kickoff = 2026, 6, fixture['KICKOFF']
+schedule = dict(season=season,games=[dict(game_id='G1',week=week,home='SEA',away='LAR',
+                                         kickoff_utc=kickoff,status='STATUS_SCHEDULED')])
+team_leg = dict(market='moneyline',selection='SEA ML')
+stable = dict(market='wr_rec_yds',gsis_id=fixture['player_ids']()[0],player='Alpha One',
+              team='SEA',line=59.5,selection='Alpha 60+')
+loser = dict(market='moneyline',selection='LAR ML')
+
+def offer(rank, terms, **value):
+    return dict(parlay_id=rank,scope='game',game_id='G1',legs=terms,**value)
+
+def retain(root, when, offers):
+    slate = dict(season=season,week=week,updated_utc=when,parlays=offers)
+    hashes = {}
+    checkout = root / 'checkout'
+    for name, value in (('parlays.json',slate),('schedule_full.json',schedule)):
+        raw = json.dumps(value).encode()
+        hashes[name] = sha256(raw).hexdigest()
+        (root / (hashes[name] + '.bin')).write_bytes(raw)
+        (checkout / 'data' / name).write_bytes(raw)
+    git(checkout,'add','data')
+    git(checkout,'commit','-qm','fixture publication')
+    evidence = dict(version=1,kind='nfl.public_parlay_observation.v1',objects_sha256=hashes,
+                    observed_completed_utc=when,origin='https://fixture.invalid',published_commit=git(checkout,'rev-parse','HEAD'),
+                    season=season,week=week,cards=classify_offers(slate,schedule,when))
+    identifier = fingerprint(evidence)
+    path = root / (identifier[7:] + '.json')
+    path.write_text(json.dumps(dict(evidence,observation_id=identifier)))
+    return path
+
+def git(checkout,*args):
+    return check_output(['git','-C',str(checkout),*args],text=True).strip()
+
+with TemporaryDirectory() as folder:
+    root = Path(folder)
+    checkout = root / 'checkout'
+    (checkout / 'data').mkdir(parents=True)
+    git(checkout,'init','-q')
+    git(checkout,'config','user.name','Local fixture')
+    git(checkout,'config','user.email','fixture@example.invalid')
+    git(checkout,'config','commit.gpgsign','false')
+    first = retain(root,'2026-09-01T17:00:00Z',[
+        offer('old-1',[team_leg,stable],joint_model_prob=.6),
+        offer('old-2',[loser]),
+    ])
+    later = retain(root,'2026-09-01T18:00:00Z',[
+        offer('updated-1',[dict(stable,side='home'),dict(team_leg,side='home')],joint_model_prob=.9),
+        offer('updated-2',[loser],joint_model_prob=.2),
+        offer('new-line',[team_leg,dict(stable,line=89.5,selection='Alpha 90+')],joint_model_prob=.25),
+    ])
+    late = retain(root,'2026-09-02T00:16:00Z',[offer('after-kickoff',[team_leg],joint_model_prob=.8)])
+    ambiguous = retain(root,'2026-09-01T17:00:00Z',[offer('tie',[team_leg,stable],joint_model_prob=.7)])
+    outcomes = save_capture(fixture['bound_bundle'](),root / 'outcomes')
+    report = evaluate_series([later, late, first, first],outcomes,checkout=checkout)
+    assert report == evaluate_series([first,late,later],outcomes,checkout=checkout)
+    try:
+        evaluate_series([first,ambiguous],outcomes,checkout=checkout)
+    except ValueError as exc:
+        tie_refusal = str(exc)
+    else:
+        raise AssertionError('conflicting first probabilities were silently selected')
+    replaced = json.loads(later.read_bytes())
+    replaced.pop('observation_id')
+    replaced['published_commit'] = json.loads(first.read_bytes())['published_commit']
+    forged = root / 'mismatched-publication.json'
+    forged.write_text(json.dumps(dict(replaced,observation_id=fingerprint(replaced))))
+    try:
+        evaluate_series([forged], root/'no-outcomes.json', checkout=checkout)
+    except ValueError as exc:
+        git_refusal = str(exc)
+    else:
+        raise AssertionError('resealed files were accepted for another commit')
+    emit(dict(report=report,tie_refusal=tie_refusal,git_refusal=git_refusal))
+`);
+  const { report } = result;
+  assert.equal(result.tie_refusal, 'ambiguous_first_card_forecast');
+  assert.equal(result.git_refusal, 'public_parlay_source_does_not_match_git_parlays.json');
+  assert.equal(report.superseded_or_repeated_offers, 2);
+  assert.equal(report.excluded_unverified_offers, 1);
+  assert.equal(report.observation_ids.length, 3);
+  assert.deepEqual(report.calibration.cards.map((card) => card.joint_model_prob), [.6, null, .25]);
+  assert.deepEqual(report.calibration.cards.map((card) => card.full_hit), [true, false, false]);
+  assert.equal(report.calibration.total.scored_count, 2);
+  assert.equal(report.calibration.total.expected_full_hits, .85);
+  assert.equal(report.calibration.total.exclusions.missing_recorded_joint_probability, 1);
+});
+
+test('observer waits for the exact publisher bytes and reuses the first successful capture', () => {
+  const result = py(`
+from pathlib import Path
+from subprocess import check_output
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+from scripts import observe_parlay_offers as O
+
+commit = check_output(['git','rev-parse','HEAD'],text=True).strip()
+public = {name:check_output(['git','show',f'{commit}:data/{name}']) for name in O.NAMES}
+responses, pauses = [], []
+
+def get(_, name):
+    responses.append(name)
+    return b'{}' if len(responses) == 1 else public[name]
+
+with TemporaryDirectory() as folder:
+    root = Path(folder)
+    receipt = root / 'published-data.txt'
+    receipt.write_text(f'84 2 {commit}\\n')
+    with patch.object(O,'_get_json',side_effect=get), patch.object(O,'_now',return_value='2099-01-01T00:00:00Z'):
+        try:
+            O.observe_after_publisher('https://fixture.invalid',receipt,'84','1',root / 'observed',
+                                      sleep=pauses.append)
+        except ValueError as exc:
+            refusal = str(exc)
+        else:
+            raise AssertionError('receipt was accepted for the wrong attempt')
+        assert not responses
+        first = O.observe_after_publisher('https://fixture.invalid',receipt,'84','2',root / 'observed',
+                                          sleep=pauses.append)
+        second = O.observe_after_publisher('https://fixture.invalid',receipt,'84','2',root / 'observed',
+                                           sleep=pauses.append)
+        receipt.write_text('84 2 noop\\n')
+        noop = O.observe_after_publisher('https://fixture.invalid',receipt,'84','2',root / 'observed',
+                                         sleep=pauses.append)
+    emit(dict(refusal=refusal,pauses=pauses,requests=len(responses),first=first['observation_id'],
+              second=second['observation_id'],replayed=second['replayed'],noop=noop['status']))
+`);
+  assert.equal(result.refusal, 'queue_publisher_receipt_invalid');
+  assert.deepEqual(result.pauses, [10]);
+  assert.equal(result.requests, 6);
+  assert.equal(result.first, result.second);
+  assert.equal(result.replayed, true);
+  assert.equal(result.noop, 'publisher_no_new_commit');
+});
+
+test('public replay requires stable player identity before a hit or did-not-play grade', () => {
+  const r = py(`
+from scripts.grade_observed_parlays import grade_cards
+from scripts.observe_parlay_offers import classify_offers
+kickoff='2026-11-09T18:00:00Z'
+scheduled=[dict(games[0],kickoff_utc=kickoff,status='STATUS_SCHEDULED')]
+schedule=dict(season=2026,games=scheduled)
+slate=dict(season=2026,week=week,updated_utc='2026-11-09T17:00:00Z',parlays=[
+    dict(parlay_id='audit',scope='game',game_id=leg['game_id'],legs=[leg])])
+refs=classify_offers(slate,schedule,'2026-11-09T17:00:00Z')
+observed=[dict(scheduled[0],final=True,observed_utc='2026-11-09T23:00:00Z',**finals[leg['game_id']])]
+evidence=dict(season=2026,week=week,cards=refs)
+sheet=[cle_sheet,no_sheet]
+
+def outcome(rows, mapping, participation=sheet):
+    card=grade_cards(evidence,slate,schedule,observed,rows,participation,mapping)['cards'][0]
+    return (card['result'],card['legs'][0]['reason'])
+
+other = dict(stats,player_id='00-0031111',player_display_name='Different Player')
+emit(dict(
+    verified=outcome([stats],roster,[snap,*sheet]),
+    missing_roster=outcome([stats],[]),
+    unbound_stats=outcome([dict(stats,player_id=None)],roster),
+    unbound_absence=outcome([other],[]),
+    bound_absence=outcome([other],roster),
+))
+`);
+  assert.deepEqual(r.verified, ['full_hit', null]);
+  for (const name of ['missing_roster', 'unbound_stats', 'unbound_absence']) {
+    assert.deepEqual(r[name], ['pending', 'identity_unverified'], name);
+  }
+  assert.deepEqual(r.bound_absence, ['void', 'did_not_play']);
+});
+
+test('public spread replay respects the exact handicap and isolates a push', () => {
+  const r = py(`
+from scripts.grade_observed_parlays import grade_cards, summarize_published_calibration, _bound_contract_id
+from scripts.observe_parlay_offers import classify_offers
+
+kickoff='2026-11-09T18:00:00Z'
+game=dict(games[0],kickoff_utc=kickoff,status='STATUS_SCHEDULED')
+schedule=dict(season=2026,games=[game])
+base=dict(market='spread',selection='NO -14')
+cases=[
+    base,
+    dict(base,selection='NO -13.5',line=-13.5,side='home'),
+    dict(base,selection='NO -14.5',line=-14.5,side='home'),
+    dict(base,line=-13.5,side='home'),
+    dict(base,side='away'),
+    dict(base,line=False),
+    dict(base,selection='home handicap',line=-14,side='home'),
+]
+cards=[dict(parlay_id=str(i),scope='game',game_id=leg['game_id'],joint_model_prob=.5,legs=[term])
+       for i,term in enumerate(cases)]
+slate=dict(season=2026,week=week,updated_utc='2026-11-09T17:00:00Z',parlays=cards)
+refs=classify_offers(slate,schedule,'2026-11-09T17:00:00Z')
+evidence=dict(season=2026,week=week,cards=refs)
+observed=[dict(game,final=True,observed_utc='2026-11-09T23:00:00Z',**finals[leg['game_id']])]
+grades=grade_cards(evidence,slate,schedule,observed,[],[],[])
+ids=[_bound_contract_id(c,r,{game['game_id']:game},2026,week) for c,r in zip(cards,refs)]
+emit(dict(grades=grades['cards'],calibration=summarize_published_calibration(evidence,slate,grades['cards']),
+          ids=ids))
+`);
+  assert.deepEqual(r.grades.map(card => [card.result, card.legs[0].reason]), [
+    ['void', 'push'], ['full_hit', null], ['loss', null], ['pending', 'spread_line_conflict'],
+    ['pending', 'spread_side_conflict'], ['pending', 'spread_line_invalid'], ['void', 'push'],
+  ]);
+  assert.equal(r.ids[0], r.ids[6]);
+  assert.notEqual(r.ids[0], r.ids[1]);
+  assert.equal(r.calibration.total.scored_count, 2);
+  assert.equal(r.calibration.total.exclusions.void_leg, 2);
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]
