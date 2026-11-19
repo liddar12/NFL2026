@@ -299,6 +299,38 @@ replay_onto() {
   return 0
 }
 
+generation_source_unchanged() {
+  local base="$1" remote="$2" team_fixture="data/fixtures/teams_espn.json"
+  git diff --quiet "$base" "$remote" -- \
+    scripts/ app/ config/ fixtures/ data/fixtures/ data/contracts/ \
+    app.js index.html package.json package-lock.json .github/workflows/ \
+    ":(exclude)$team_fixture" || return 1
+  if git diff --quiet "$base" "$remote" -- "$team_fixture"; then
+    return 0
+  fi
+
+  # The predictions builder emits this file on every run. Its clock alone
+  # does not change the team identity inputs read by downstream builders.
+  python3 - "$base" "$remote" "$team_fixture" <<'PYTHON'
+import json
+import subprocess
+import sys
+
+def read(ref, path):
+    raw = subprocess.check_output(["git", "show", f"{ref}:{path}"], stderr=subprocess.DEVNULL)
+    fixture = json.loads(raw)
+    if not isinstance(fixture, dict) or not isinstance(fixture.pop("updated_utc", None), str):
+        raise ValueError("missing team fixture timestamp")
+    return fixture
+
+base, remote, path = sys.argv[1:]
+try:
+    raise SystemExit(0 if read(base, path) == read(remote, path) else 1)
+except (subprocess.CalledProcessError, ValueError, TypeError):
+    raise SystemExit(1)
+PYTHON
+}
+
 main() {
   if [ "$#" -ne 1 ] || [ -z "$1" ]; then
     echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
@@ -350,9 +382,7 @@ main() {
       # A data-only race can be reconciled. A new producer, input fixture or
       # contract requires a new generation; passing a shape check cannot prove
       # these old outputs were built by the newly landed implementation.
-      if ! git diff --quiet "$generation_base" "$remote" -- \
-          scripts/ app/ config/ fixtures/ data/fixtures/ data/contracts/ \
-          app.js index.html package.json package-lock.json .github/workflows/; then
+      if ! generation_source_unchanged "$generation_base" "$remote"; then
         die "generation source changed while this run was building. Nothing was published; rerun against the current source."
       fi
       log "attempt $attempt: $target_branch moved to $(git rev-parse --short "$remote") while this run was working; re-creating this run's data commit on top of it"
