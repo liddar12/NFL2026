@@ -147,6 +147,80 @@ emit(summarize_published_calibration(dict(cards=references),dict(parlays=cards),
   assert.equal(result.by_scope.game.max_scored_card_share_one_game, 1);
 });
 
+test('refresh series keeps the first public terms despite reordering, repricing and repeated input', () => {
+  const result = py(`
+from hashlib import sha256
+from pathlib import Path
+from runpy import run_path
+from tempfile import TemporaryDirectory
+from scripts.grade_observed_parlays import evaluate_series
+from scripts.learning_receipts import fingerprint
+from scripts.observe_parlay_offers import classify_offers
+from scripts.capture_outcome_evidence import save_capture
+
+fixture = run_path('tests/fixtures/week6_outcomes.py')
+season, week, kickoff = 2026, 6, fixture['KICKOFF']
+schedule = dict(season=season,games=[dict(game_id='G1',week=week,home='SEA',away='LAR',
+                                         kickoff_utc=kickoff,status='STATUS_SCHEDULED')])
+team_leg = dict(market='moneyline',selection='SEA ML')
+stable = dict(market='wr_rec_yds',gsis_id=fixture['player_ids']()[0],player='Alpha One',
+              team='SEA',line=59.5,selection='Alpha 60+')
+loser = dict(market='moneyline',selection='LAR ML')
+
+def offer(rank, terms, **value):
+    return dict(parlay_id=rank,scope='game',game_id='G1',legs=terms,**value)
+
+def retain(root, when, offers):
+    slate = dict(season=season,week=week,updated_utc=when,parlays=offers)
+    hashes = {}
+    for name, value in (('parlays.json',slate),('schedule_full.json',schedule)):
+        raw = json.dumps(value).encode()
+        hashes[name] = sha256(raw).hexdigest()
+        (root / (hashes[name] + '.bin')).write_bytes(raw)
+    evidence = dict(version=1,kind='nfl.public_parlay_observation.v1',objects_sha256=hashes,
+                    observed_completed_utc=when,origin='https://fixture.invalid',
+                    season=season,week=week,cards=classify_offers(slate,schedule,when))
+    identifier = fingerprint(evidence)
+    path = root / (identifier[7:] + '.json')
+    path.write_text(json.dumps(dict(evidence,observation_id=identifier)))
+    return path
+
+with TemporaryDirectory() as folder:
+    root = Path(folder)
+    first = retain(root,'2026-09-01T17:00:00Z',[
+        offer('old-1',[team_leg,stable],joint_model_prob=.6),
+        offer('old-2',[loser]),
+    ])
+    later = retain(root,'2026-09-01T18:00:00Z',[
+        offer('updated-1',[dict(stable,side='home'),dict(team_leg,side='home')],joint_model_prob=.9),
+        offer('updated-2',[loser],joint_model_prob=.2),
+        offer('new-line',[team_leg,dict(stable,line=89.5,selection='Alpha 90+')],joint_model_prob=.25),
+    ])
+    late = retain(root,'2026-09-02T00:16:00Z',[offer('after-kickoff',[team_leg],joint_model_prob=.8)])
+    ambiguous = retain(root,'2026-09-01T17:00:00Z',[offer('tie',[team_leg,stable],joint_model_prob=.7)])
+    outcomes = save_capture(fixture['bound_bundle'](),root / 'outcomes')
+    report = evaluate_series([later, late, first, first],outcomes)
+    assert report == evaluate_series([first,late,later],outcomes)
+    try:
+        evaluate_series([first,ambiguous],outcomes)
+    except ValueError as exc:
+        tie_refusal = str(exc)
+    else:
+        raise AssertionError('conflicting first probabilities were silently selected')
+    emit(dict(report=report,tie_refusal=tie_refusal))
+`);
+  const { report } = result;
+  assert.equal(result.tie_refusal, 'ambiguous_first_card_forecast');
+  assert.equal(report.superseded_or_repeated_offers, 2);
+  assert.equal(report.excluded_unverified_offers, 1);
+  assert.equal(report.observation_ids.length, 3);
+  assert.deepEqual(report.calibration.cards.map((card) => card.joint_model_prob), [.6, null, .25]);
+  assert.deepEqual(report.calibration.cards.map((card) => card.full_hit), [true, false, false]);
+  assert.equal(report.calibration.total.scored_count, 2);
+  assert.equal(report.calibration.total.expected_full_hits, .85);
+  assert.equal(report.calibration.total.exclusions.missing_recorded_joint_probability, 1);
+});
+
 test('played in another fixture stays pending even with the old fixture snap sheet', () => {
   const r = py(`
 all_snaps = [cle_sheet, no_sheet, other_snap]
