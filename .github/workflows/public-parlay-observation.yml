@@ -63,3 +63,26 @@ jobs:
           path: ${{ runner.temp }}/public-parlay-observation
           if-no-files-found: error
           retention-days: 90
+
+      - name: Freeze Game challenger and baseline before kickoff
+        id: game-shadow
+        run: |
+          set -euo pipefail
+          observation="$RUNNER_TEMP/public-parlay-observation/observation-result.json"
+          if jq -e '.status == "publisher_no_new_commit"' "$observation" > /dev/null; then
+            exit 0
+          fi
+          mkdir -m 700 "$RUNNER_TEMP/game-parlay-shadow"
+          timeout 60s python3 -B scripts/game_parlay_shadow.py \
+            --observation-result "$observation" \
+            > "$RUNNER_TEMP/game-parlay-shadow/game-shadow.json"
+          echo "recorded=true" >> "$GITHUB_OUTPUT"
+
+      - name: Retain frozen shadow picks
+        if: steps.game-shadow.outputs.recorded == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-shadow-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/game-parlay-shadow/game-shadow.json
+          if-no-files-found: error
+          retention-days: 90

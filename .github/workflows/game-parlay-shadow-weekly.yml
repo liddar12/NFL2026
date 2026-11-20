@@ -1,0 +1,64 @@
+name: Game parlay shadow recommendation
+
+on:
+  schedule:
+    - cron: '23 10 * * 2'
+      timezone: America/Chicago
+  workflow_dispatch: {}
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: game-parlay-shadow-weekly
+  cancel-in-progress: false
+
+jobs:
+  recommendation:
+    if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Retrieve frozen records from the trusted publisher observer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          export SHADOW_DIR="$RUNNER_TEMP/game-parlay-shadow"
+          mkdir -m 700 "$SHADOW_DIR"
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow public-parlay-observation.yml \
+            --branch main --status success --limit 180 --json databaseId --jq '.[].databaseId' \
+            > "$RUNNER_TEMP/game-shadow-runs.txt"
+          xargs -r -P 4 -I RUN bash -euo pipefail -c '
+            id="$1"
+            [[ "$id" =~ ^[0-9]+$ ]]
+            name=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" \
+              --jq "[.artifacts[] | select(.expired == false and (.name | startswith(\"game-shadow-\")))] | max_by(.id) | .name // empty")
+            if [[ -n "$name" ]]; then
+              gh run download "$id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "$SHADOW_DIR/$id"
+            fi
+          ' bash RUN < "$RUNNER_TEMP/game-shadow-runs.txt"
+
+      - name: Publish weekly recommendation
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/game-shadow-recommendation.json"
+          python3 -B scripts/game_parlay_shadow.py --weekly "$RUNNER_TEMP/game-parlay-shadow" --commit "$GITHUB_SHA" > "$report"
+          {
+            printf '## Game parlay shadow recommendation\n\n'
+            jq -r '"**\(.recommendation | gsub("_"; " "))**\n\nFrozen results: \(.baseline_hits) baseline hits, \(.challenger_hits) candidate hits across \(.graded_games) graded games and \(.paired_weeks) graded weeks.\n\n95% hit-rate change interval: \(.change_95_interval // "pending")."' "$report"
+            printf '\nThe recommendation is advisory. Production selection remains owner-controlled.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: game-parlay-shadow-recommendation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/game-shadow-recommendation.json
+          if-no-files-found: error
+          retention-days: 90
