@@ -1,9 +1,10 @@
 name: Game parlay shadow recommendation
 
 on:
-  schedule:
-    - cron: '23 10 * * 2'
-      timezone: America/Chicago
+  workflow_run:
+    workflows: [weekly-backtest]
+    branches: [main]
+    types: [completed]
   workflow_dispatch: {}
 
 permissions:
@@ -16,7 +17,11 @@ concurrency:
 
 jobs:
   recommendation:
-    if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' }}
+    if: >-
+      github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
