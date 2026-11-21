@@ -1,8 +1,8 @@
 {
   "counts": {
-    "appended": 20,
-    "games": 115,
-    "observations": 8574,
+    "appended": 16,
+    "games": 120,
+    "observations": 8590,
     "refused": {
       "conflict": 0,
       "duplicate": 0,
@@ -11,7 +11,7 @@
       "not_forecast": 0
     }
   },
-  "generated_utc": "2026-11-20T22:03:19Z",
+  "generated_utc": "2026-11-21T03:09:54Z",
   "kind": "weather_forecast_archive",
   "observations": [
     {
@@ -68605,6 +68605,134 @@
       "source": "forecast",
       "temp_c": 22.4,
       "wind_kph": 7.2
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|11|NYG|JAX",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 15.5,
+      "wind_kph": 7.7
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|11|WAS|CIN",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 12.9,
+      "wind_kph": 12.4
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|ARI|WAS",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 21.7,
+      "wind_kph": 8.0
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|CIN|NO",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 9.4,
+      "wind_kph": 8.8
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|CLE|LV",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 7.8,
+      "wind_kph": 7.3
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|IND|NYG",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 9.0,
+      "wind_kph": 7.2
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|JAX|TEN",
+      "precip_mm": 0.7,
+      "source": "forecast",
+      "temp_c": 20.6,
+      "wind_kph": 12.2
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|MIA|NYJ",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 28.1,
+      "wind_kph": 30.6
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|PIT|DEN",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 5.0,
+      "wind_kph": 11.2
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|SF|SEA",
+      "precip_mm": 0.3,
+      "source": "forecast",
+      "temp_c": 13.1,
+      "wind_kph": 16.5
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|12|TB|CAR",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 19.2,
+      "wind_kph": 11.6
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|13|ATL|DET",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 14.6,
+      "wind_kph": 12.8
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|13|CLE|CIN",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 9.2,
+      "wind_kph": 13.1
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|13|NYG|SF",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 9.5,
+      "wind_kph": 11.5
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|13|TB|LAC",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 24.3,
+      "wind_kph": 12.2
+    },
+    {
+      "fetched_utc": "2026-11-21T03:06:22Z",
+      "key": "2026|13|TEN|WAS",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 14.2,
+      "wind_kph": 12.2
     }
   ],
   "rule": "Append-only. A (key, fetched_utc) pair already present is never rewritten, reordered or dropped, so a re-run adds zero rows and a changed upstream value is refused rather than overwriting the observation as it stood. generated_utc is the last APPEND, not the last run: a run that appends nothing leaves this file byte-identical.",
