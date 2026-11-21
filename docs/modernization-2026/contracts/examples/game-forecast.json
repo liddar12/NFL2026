@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1",
+  "record_id": "fixture-forecast-game-001",
+  "fixture": true,
+  "project_id": "nfl2026-design-fixture",
+  "task": "nfl.game_result",
+  "event_id": "fixture-game-001",
+  "entity_id": "fixture-home-team",
+  "horizon": "game",
+  "issued_at": "2026-10-08T10:00:00Z",
+  "lock_deadline": "2026-10-09T00:15:00Z",
+  "lock_policy_version": "week-first-kickoff-v1",
+  "source_max_as_of": "2026-10-08T09:00:00Z",
+  "source_ref": "fixture://retained-snapshot/example-001",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "evidence_class": "fixture",
+  "code_version": "fixture-code-version",
+  "model_version": "fixture-model-v1",
+  "scoring_version": "three-way-regulation-policy-fixture-v1",
+  "prediction": {
+    "kind": "categorical",
+    "conditioning": "unconditional_three_way",
+    "probabilities": {
+      "home": 0.55,
+      "away": 0.44,
+      "tie": 0.01
+    }
+  }
+}
