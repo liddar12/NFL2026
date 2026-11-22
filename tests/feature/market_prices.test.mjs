@@ -93,6 +93,23 @@ print(json.dumps({
   assert.equal(r.bad, null);
 });
 
+test('Kalshi dollar fields and legacy cents yield equivalent probabilities', () => {
+  const prices = runPy(`
+import json
+from scripts.scrape.kalshi_nfl import price_of
+cases = [
+    {"last_price_dollars": "0.5925"},
+    {"last_price": 59},
+    {"last_price_dollars": "1.0000"},
+    {"last_price_dollars": "0", "yes_bid_dollars": "0.5800", "yes_ask_dollars": "0.5900"},
+    {"yes_bid": 58, "yes_ask": 59},
+    {"last_price_dollars": "NaN", "yes_bid_dollars": "0.6100", "yes_ask_dollars": "0.5900"},
+]
+print(json.dumps([price_of(case) for case in cases]))
+`);
+  assert.deepEqual(prices, [0.5925, 0.59, null, 0.585, 0.585, null]);
+});
+
 test('polymarket de-vig normalizes and refuses zero-sum fields (pure)', () => {
   const r = runPy(`
 import json, sys
@@ -104,6 +121,23 @@ print(json.dumps({"rows": rows, "empty": devig([])}))
   assert.equal(r.rows[0].prob + r.rows[1].prob, 1);
   assert.ok(Math.abs(r.rows[1].prob - 0.75) < 1e-9);
   assert.deepEqual(r.empty, []);
+});
+
+test('Polymarket keeps the 100-event window with provider-sized pages', () => {
+  const result = runPy(`
+import json
+from unittest.mock import patch
+from scripts.scrape import polymarket_nfl as source
+
+def page(path, params):
+    assert path == "/events" and 0 < params["limit"] <= 30
+    return list(range(params["offset"], params["offset"] + params["limit"]))
+
+with patch.object(source, "_get_json", side_effect=page) as fetch:
+    print(json.dumps({"events": source._nfl_events(), "calls": fetch.call_count}))
+`);
+  assert.deepEqual(result.events, Array.from({ length: 100 }, (_, i) => i));
+  assert.equal(result.calls, 4);
 });
 
 test('POLICY GATE: a non-zero market-signal weight fails validation', () => {

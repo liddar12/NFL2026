@@ -57,21 +57,31 @@ def _get_json(path, params=None):
         raise KalshiError(f"Kalshi GET {path} failed: {exc}") from exc
 
 
+def _price(market, key):
+    dollars = market.get(key + "_dollars")
+    if isinstance(dollars, str):
+        try:
+            value = float(dollars)
+        except ValueError:
+            return None
+    else:
+        cents = market.get(key)
+        if type(cents) not in (int, float):
+            return None
+        value = cents / 100
+    return value if 0 < round(value, 4) < 1 else None
+
+
 def price_of(market):
-    """Probability [0,1] for a market's YES side, or None when unpriced.
-
-    Preference order: last trade, else bid/ask midpoint (both sides needed).
-    Kalshi prices are integer cents. Never invents a price for a dead book.
-    """
-    last = market.get("last_price")
-    if isinstance(last, (int, float)) and last > 0:
-        return round(float(last) / 100.0, 4)
-    bid, ask = market.get("yes_bid"), market.get("yes_ask")
-    if (isinstance(bid, (int, float)) and isinstance(ask, (int, float))
-            and bid > 0 and ask > 0):
-        return round((float(bid) + float(ask)) / 200.0, 4)
+    """YES probability from the last trade, or midpoint of a two-sided book."""
+    last = _price(market, "last_price")
+    if last is not None:
+        return round(last, 4)
+    bid = _price(market, "yes_bid")
+    ask = _price(market, "yes_ask")
+    if bid is not None and ask is not None and bid <= ask:
+        return round((bid + ask) / 2, 4)
     return None
-
 
 def _paged_events(series_ticker, status="open"):
     """All events of a series, following the cursor. Loud on a totally empty first page."""

@@ -63,8 +63,16 @@ def _get_json(path, params=None):
 
 def _nfl_events():
     """Open events tagged nfl. Loud when the tag returns nothing at all."""
-    data = _get_json("/events", {"tag_slug": "nfl", "closed": "false", "limit": 100})
-    events = data if isinstance(data, list) else data.get("events") or []
+    events = []
+    page_size = 30
+    for offset in range(0, 100, page_size):
+        limit = min(page_size, 100 - offset)
+        data = _get_json("/events", {"tag_slug": "nfl", "closed": "false",
+                                     "limit": limit, "offset": offset})
+        page = data if isinstance(data, list) else data.get("events") or []
+        events.extend(page)
+        if len(page) < limit:
+            break
     if not events:
         raise PolymarketError("Polymarket tag_slug=nfl returned 0 open events — outage "
                               "or a retagged league, not an empty market.")
