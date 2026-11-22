@@ -78,8 +78,11 @@ def run(mode, *, env=os.environ):
         if mode == "recover":
             pointer = read_pointer(temp / "selflearning-outcome-pointer" / "pointer.json",
                                    env["OUTCOME_SOURCE_RUN_ID"], env["OUTCOME_SOURCE_RUN_ATTEMPT"])
-            return report(application.resume_registered(pointer["application_id"], pointer["request_id"],
-                                                         env[TOKEN]))
+            try:
+                result = application.resume_registered(pointer["application_id"], pointer["request_id"], env[TOKEN])
+            except application.ApplicationExportError as error:
+                return report({"status": "pending", "reason": str(error)})
+            return report(result)
         run_id, attempt = env["GITHUB_RUN_ID"], env["GITHUB_RUN_ATTEMPT"]
         if mode == "prepare":
             handoff.scope("daily.yml", run_id, attempt)

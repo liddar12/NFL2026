@@ -239,6 +239,39 @@ with tempfile.TemporaryDirectory() as tmp:
   assert.deepEqual(r.period, [2026, [6]]);
 });
 
+test('scheduled recovery reports missing registration and redacts unrecognized diagnostics', () => {
+  const r = py(`
+from scripts import run_scheduled_outcomes as scheduled
+with tempfile.TemporaryDirectory() as tmp:
+ root = pathlib.Path(tmp)
+ plan, _, _ = fixture(root)
+ pointer = scheduled.capture_pointer(plan, '101', '2')
+ folder = root/'selflearning-outcome-pointer'
+ folder.mkdir()
+ (folder/'pointer.json').write_text(json.dumps(pointer))
+ env = {'RUNNER_TEMP': tmp, 'NFL_SELFLEARN_OUTCOME_MODE': 'record',
+        'GITHUB_REPOSITORY': 'liddar12/NFL2026', 'GITHUB_REF': 'refs/heads/main',
+        'OUTCOME_SOURCE_RUN_ID': '101', 'OUTCOME_SOURCE_RUN_ATTEMPT': '2',
+        scheduled.TOKEN: TOKEN}
+ server = Server()
+ resume = A.resume_registered
+ results = []
+ with mock.patch.object(scheduled.handoff.forecast.capture, 'disabled_config'):
+  for side_effect in (lambda *args: resume(*args, transport=server), A.ApplicationExportError(TOKEN)):
+   with mock.patch.object(A, 'resume_registered', side_effect=side_effect), redirect_stdout(io.StringIO()) as stream:
+    exit_code = scheduled.run('recover', env=env)
+   content = stream.getvalue()
+   assert TOKEN not in content
+   results.append([exit_code, json.loads(content)])
+ print(json.dumps({'results': results, 'methods': [method for method, _, _ in server.calls]}))
+`);
+  assert.deepEqual(r.results, [
+    [1, { status: 'pending', reason: 'application_original_registration_missing', adoption_approved: false }],
+    [1, { status: 'pending', reason: 'application_protocol_refused', adoption_approved: false }],
+  ]);
+  assert.deepEqual(r.methods, ['GET']);
+});
+
 test('v2 metadata rejects resealed roster members outside the ordered capture plan', () => {
   const r = py(`
 with tempfile.TemporaryDirectory() as tmp:

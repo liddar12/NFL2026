@@ -42,7 +42,8 @@ STATUS_KEYS = set("version kind application_id registration_id seal_id membershi
 COUNTS = set("groups members accepted_groups accepted_members withheld_groups withheld_members not_applied_groups not_applied_members batches committed_batches".split())
 NORMAL = {"accepted", "partial", "withheld", "no_supported_membership"}
 SAFE = {"application_transport_failed", "application_transport_exhausted", "application_http_refused", "application_http_exhausted",
-        "application_protocol_refused", "application_pending_budget", "application_pending_step_limit", "application_original_conflict"}
+        "application_protocol_refused", "application_pending_budget", "application_pending_step_limit",
+        "application_original_conflict", "application_original_registration_missing"}
 
 
 class ApplicationExportError(ValueError):
