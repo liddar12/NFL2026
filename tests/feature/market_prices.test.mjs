@@ -106,6 +106,23 @@ print(json.dumps({"rows": rows, "empty": devig([])}))
   assert.deepEqual(r.empty, []);
 });
 
+test('Polymarket keeps the 100-event window with provider-sized pages', () => {
+  const result = runPy(`
+import json
+from unittest.mock import patch
+from scripts.scrape import polymarket_nfl as source
+
+def page(path, params):
+    assert path == "/events" and 0 < params["limit"] <= 30
+    return list(range(params["offset"], params["offset"] + params["limit"]))
+
+with patch.object(source, "_get_json", side_effect=page) as fetch:
+    print(json.dumps({"events": source._nfl_events(), "calls": fetch.call_count}))
+`);
+  assert.deepEqual(result.events, Array.from({ length: 100 }, (_, i) => i));
+  assert.equal(result.calls, 4);
+});
+
 test('POLICY GATE: a non-zero market-signal weight fails validation', () => {
   const r = runPy(`
 import json, sys

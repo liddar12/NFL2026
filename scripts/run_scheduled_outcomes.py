@@ -53,7 +53,10 @@ def read_pointer(path, run_id, run_attempt):
 
 def report(result):
     if result["status"] != "terminal_original":
-        print(json.dumps({"status": "pending", "adoption_approved": False}))
+        reason = result.get("reason")
+        if not isinstance(reason, str) or reason not in application.SAFE:
+            reason = "application_protocol_refused"
+        print(json.dumps({"status": "pending", "reason": reason, "adoption_approved": False}))
         return 1
     terminal = result["result"]
     print(json.dumps({"status": terminal["status"], "application_id": terminal["application_id"],

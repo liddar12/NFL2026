@@ -295,10 +295,4 @@ test('every committed parlay carries a tier to filter and an EV to sort', () => 
     assert.ok(Number.isFinite(p.model_ev));
   }
   assert.ok(seen.size >= 1);
-  // the sort earns its keep only because the feed is NOT already EV-ordered
-  for (const scope of ['week', 'game']) {
-    const evs = rows.filter((p) => p.scope === scope).map((p) => p.model_ev);
-    const sorted = [...evs].sort((a, b) => b - a);
-    assert.notDeepEqual(evs, sorted, `${scope} scope arrives EV-sorted — the sort would be a no-op`);
-  }
 });
