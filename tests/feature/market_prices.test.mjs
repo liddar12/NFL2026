@@ -140,6 +140,67 @@ with patch.object(source, "_get_json", side_effect=page) as fetch:
   assert.equal(result.calls, 4);
 });
 
+test('Polymarket only binds active two-sided full-game moneylines to one exact matchup', () => {
+  const result = runPy(`
+import json
+from unittest.mock import patch
+from scripts import build_markets
+from scripts.scrape import polymarket_nfl as source
+
+clock = "2026-12-07T01:20:00Z"
+market_clock = "2026-12-07 01:20:00+00"
+moneyline = {
+    "sportsMarketType": "moneyline", "active": True, "closed": False, "acceptingOrders": True,
+    "gameStartTime": market_clock, "outcomes": '["Texans", "Steelers"]', "outcomePrices": '["0.485", "0.515"]',
+}
+event = {"slug": "nfl-hou-pit-2026-12-07", "startTime": clock, "markets": [moneyline]}
+futures = [{ "groupItemTitle": team, "outcomePrices": '["0.5","0.5"]' } for team in ("Texans", "Steelers")]
+events = [
+    {**event, "markets": futures},
+    {**event, "markets": [{**moneyline, "sportsMarketType": "first_half_moneyline"}]},
+    {**event, "startTime": "2026-12-07T01:20:00"},
+    {**event, "markets": [{**moneyline, "gameStartTime": "2026-12-07 01:21:00+00"}]},
+    {**event, "markets": [{**moneyline, "outcomePrices": '["0.5"]'}]},
+    {**event, "markets": [{**moneyline, "outcomePrices": [True, 0.5]}]},
+    {**event, "markets": [{**moneyline, "closed": True}]},
+    {**event, "markets": [{**moneyline, "acceptingOrders": False}]},
+    {**event, "markets": [moneyline, moneyline]},
+    {**event, "startTime": "2026-12-07T01:21:00Z",
+     "markets": [{**moneyline, "gameStartTime": "2026-12-07 01:21:00+00"}]},
+    event,
+]
+with patch.object(source, "_get_json", return_value=events) as fetch:
+    parsed = source.fetch_game_markets()
+schedule = [
+    {"game_id": "old", "home": "HOU", "away": "PIT", "kickoff_utc": "2026-11-30T01:20Z"},
+    {"game_id": "right", "home": "PIT", "away": "HOU", "kickoff_utc": "2026-12-06T19:20:00-06:00"},
+]
+names = build_markets.name_map()
+matched, unmatched = build_markets.join_polymarket_games(parsed, schedule, names)
+exact = parsed[-1]
+wrong_team = {**exact, "prices": {"Texans": .5, "Bills": .5}}
+conflict = {**exact, "slug": "conflicting-identical-match"}
+duplicate = {**schedule[-1], "game_id": "ambiguous"}
+print(json.dumps({
+    "query": fetch.call_args.args[1], "parsed_count": len(parsed),
+    "matched": matched, "unmatched": unmatched,
+    "wrong_team": build_markets.join_polymarket_games([wrong_team], schedule, names),
+    "conflict": build_markets.join_polymarket_games([exact, conflict, exact], schedule, names),
+    "ambiguous": build_markets.join_polymarket_games([exact], [*schedule, duplicate], names),
+}))
+`);
+  assert.equal(result.query.order, 'startDate');
+  assert.equal(result.query.ascending, 'false');
+  assert.equal(result.parsed_count, 2);
+  assert.equal(result.unmatched, 1);
+  assert.deepEqual(result.matched, {
+    right: { home_prob: 0.515, away_prob: 0.485, slug: 'nfl-hou-pit-2026-12-07' },
+  });
+  assert.deepEqual(result.wrong_team, [{}, 1]);
+  assert.deepEqual(result.conflict, [{}, 1]);
+  assert.deepEqual(result.ambiguous, [{}, 1]);
+});
+
 test('POLICY GATE: a non-zero market-signal weight fails validation', () => {
   const r = runPy(`
 import json, sys

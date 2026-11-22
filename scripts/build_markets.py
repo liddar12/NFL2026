@@ -10,6 +10,7 @@ Joining rules (never guess):
     (KXNFLGAME-26SEP14DENKC). We split the pair at every point where BOTH
     halves are canonical abbrevs and accept only a split that matches a real
     schedule game on that date +/-1 day (TZ slop). No match -> dropped, counted.
+  * Polymarket moneylines must match both teams and their exact kickoff.
   * Team names (Polymarket "Buffalo Bills", Kalshi "Kansas City") map to
     canonical abbrevs via data/fixtures/teams_espn.json identity (location /
     nickname / display) + scrape.renames. Unmappable rows are dropped, counted,
@@ -178,6 +179,35 @@ def join_kalshi_games(events, schedule, canonical):
     return out, unmatched
 
 
+def join_polymarket_games(events, schedule, names):
+    """Match both canonical teams and their exact, timezone-aware kickoff."""
+    scheduled = {}
+    for game in schedule:
+        kickoff = polymarket_nfl.kickoff_instant(game["kickoff_utc"])
+        if kickoff is not None:
+            key = frozenset((game["home"], game["away"])), kickoff
+            scheduled.setdefault(key, []).append(game)
+
+    out, conflicts, unmatched = {}, set(), 0
+    for event in events:
+        mapped = {to_abbrev(name, names): price for name, price in event["prices"].items()}
+        kickoff = polymarket_nfl.kickoff_instant(event["kickoff_utc"])
+        matches = scheduled.get((frozenset(mapped), kickoff), [])
+        if len(mapped) != 2 or None in mapped or len(matches) != 1:
+            unmatched += 1
+            continue
+        game = matches[0]
+        game_id = game["game_id"]
+        row = {"home_prob": mapped[game["home"]], "away_prob": mapped[game["away"]],
+               "slug": event["slug"]}
+        if game_id in conflicts or (game_id in out and out[game_id] != row):
+            conflicts.add(game_id)
+            out.pop(game_id, None)
+        else:
+            out[game_id] = row
+    return out, unmatched + len(conflicts)
+
+
 def main():
     with open(os.path.join(DATA, "schedule_full.json"), encoding="utf-8") as fh:
         schedule = json.load(fh)["games"]
@@ -227,6 +257,7 @@ def main():
     poly_notes = []
     dropped = 0
     n_games = 0
+    poly_unmatched = 0
     poly_ok = 0
     try:
         rows = polymarket_nfl.fetch_champion_futures()
@@ -243,20 +274,11 @@ def main():
         print(f"[warn] polymarket champion futures failed: {exc}", file=sys.stderr)
 
     try:
-        for gm in polymarket_nfl.fetch_game_markets():
-            mapped = {}
-            for nm, p in gm["prices"].items():
-                ab = to_abbrev(nm, names)
-                if ab:
-                    mapped[ab] = p
-            for g in schedule:
-                if g["home"] in mapped and g["away"] in mapped:
-                    games.setdefault(g["game_id"], {})["polymarket"] = {
-                        "home_prob": mapped[g["home"]], "away_prob": mapped[g["away"]],
-                        "slug": gm["title"],
-                    }
-                    n_games += 1
-                    break
+        poly_events = polymarket_nfl.fetch_game_markets()
+        games_poly, poly_unmatched = join_polymarket_games(poly_events, schedule, names)
+        for gid, row in games_poly.items():
+            games.setdefault(gid, {})["polymarket"] = row
+        n_games = len(games_poly)
         poly_ok += 1
     except Exception as exc:  # noqa: BLE001 — loud, isolated
         poly_notes.append(f"games: {exc}")
@@ -269,7 +291,7 @@ def main():
         len(futures["polymarket"]) + n_games,
         parts_failed=2 - poly_ok, parts_total=2,
         note="; ".join(poly_notes) if poly_notes else None,
-        extra={"dropped_unmapped": dropped})
+        extra={"dropped_unmapped": dropped, "unmatched": poly_unmatched})
     if poly_ok == 0:
         failures.append(f"polymarket: {'; '.join(poly_notes)}")
 
