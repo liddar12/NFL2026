@@ -9,14 +9,14 @@ de-vig, canonical name mapping). Two surfaces:
                             each groupItemTitle a full team name and
                             outcomePrices a JSON string '["yes","no"]'.
                             De-vigged so the field sums to 1.
-  fetch_game_markets()      Per-game winner events under tag_slug=nfl whose
-                            title looks like "X vs. Y" — usually absent until
-                            game week; emits what exists, gracefully.
+  fetch_game_markets()      Open, two-sided game moneylines with a kickoff and
+                            explicitly paired outcome labels and prices.
 
 USER POLICY (hard rule): DISPLAY ONLY — never an input to predictions,
 weights, or parlay probabilities (validate_data.py MARKET_DISPLAY_ONLY).
 """
 
+from datetime import datetime, timezone
 import json
 import re
 import urllib.parse
@@ -61,14 +61,15 @@ def _get_json(path, params=None):
         raise PolymarketError(f"Polymarket GET {path} failed: {exc}") from exc
 
 
-def _nfl_events():
+def _nfl_events(*, newest_first=False):
     """Open events tagged nfl. Loud when the tag returns nothing at all."""
     events = []
     page_size = 30
+    ordering = {"order": "startDate", "ascending": "false"} if newest_first else {}
     for offset in range(0, 100, page_size):
         limit = min(page_size, 100 - offset)
         data = _get_json("/events", {"tag_slug": "nfl", "closed": "false",
-                                     "limit": limit, "offset": offset})
+                                     "limit": limit, "offset": offset, **ordering})
         page = data if isinstance(data, list) else data.get("events") or []
         events.extend(page)
         if len(page) < limit:
@@ -137,20 +138,51 @@ def fetch_champion_futures():
     return rows
 
 
+def kickoff_instant(stamp):
+    """Parse an explicit, timezone-aware game kickoff."""
+    if not isinstance(stamp, str):
+        return None
+    # Gamma gameStartTime sometimes writes an hour-only offset (e.g. +00).
+    normalized = re.sub(r"([+-]\d{2})$", r"\1:00", stamp.replace("Z", "+00:00"))
+    try:
+        parsed = datetime.fromisoformat(normalized)
+        return parsed.astimezone(timezone.utc) if parsed.utcoffset() is not None else None
+    except (ValueError, OverflowError):
+        return None
+
+
+def _moneyline_prices(market, kickoff):
+    if (not isinstance(market, dict) or market.get("sportsMarketType") != "moneyline"
+            or market.get("active") is not True or market.get("closed") is not False
+            or market.get("acceptingOrders") is not True
+            or kickoff_instant(market.get("gameStartTime")) != kickoff):
+        return None
+    try:
+        teams, raw_prices = (json.loads(market[key]) if isinstance(market[key], str) else market[key]
+                             for key in ("outcomes", "outcomePrices"))
+        if (not isinstance(teams, list) or len(teams) != 2
+                or any(not isinstance(name, str) or not name.strip() for name in teams)
+                or len({name.strip().casefold() for name in teams}) != 2
+                or not isinstance(raw_prices, list) or len(raw_prices) != 2
+                or any(type(raw) not in (str, float, int) for raw in raw_prices)):
+            return None
+        prices = [float(raw) for raw in raw_prices]
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return None
+    if not all(0 < price < 1 for price in prices):
+        return None
+    return dict(zip(teams, prices))
+
+
 def fetch_game_markets():
-    """Per-game winner events (title \"X vs. Y\"), when listed. Best-effort:
-    returns list[{title, prices: {name: prob}}]; [] preseason is normal."""
+    """Two-sided moneylines from recent events, independent of the futures window."""
     out = []
-    for ev in _nfl_events():
-        title = (ev.get("title") or "")
-        if " vs" not in title.lower():
+    for ev in _nfl_events(newest_first=True):
+        kickoff = kickoff_instant(ev.get("startTime"))
+        slug, markets = ev.get("slug"), ev.get("markets")
+        if kickoff is None or not isinstance(slug, str) or not slug.strip() or not isinstance(markets, list):
             continue
-        prices = {}
-        for m in ev.get("markets") or []:
-            p = yes_price(m)
-            name = (m.get("groupItemTitle") or "").strip()
-            if p is not None and name:
-                prices[name] = p
-        if prices:
-            out.append({"title": title, "prices": prices})
+        prices = [pair for market in markets if (pair := _moneyline_prices(market, kickoff)) is not None]
+        if len(prices) == 1:
+            out.append({"slug": slug, "kickoff_utc": kickoff.isoformat(), "prices": prices[0]})
     return out
