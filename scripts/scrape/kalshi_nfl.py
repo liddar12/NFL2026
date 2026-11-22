@@ -69,7 +69,7 @@ def _price(market, key):
         if type(cents) not in (int, float):
             return None
         value = cents / 100
-    return value if 0 < value <= 1 else None
+    return value if 0 < round(value, 4) < 1 else None
 
 
 def price_of(market):

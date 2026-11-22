@@ -100,13 +100,14 @@ from scripts.scrape.kalshi_nfl import price_of
 cases = [
     {"last_price_dollars": "0.5925"},
     {"last_price": 59},
+    {"last_price_dollars": "1.0000"},
     {"last_price_dollars": "0", "yes_bid_dollars": "0.5800", "yes_ask_dollars": "0.5900"},
     {"yes_bid": 58, "yes_ask": 59},
     {"last_price_dollars": "NaN", "yes_bid_dollars": "0.6100", "yes_ask_dollars": "0.5900"},
 ]
 print(json.dumps([price_of(case) for case in cases]))
 `);
-  assert.deepEqual(prices, [0.5925, 0.59, 0.585, 0.585, null]);
+  assert.deepEqual(prices, [0.5925, 0.59, null, 0.585, 0.585, null]);
 });
 
 test('polymarket de-vig normalizes and refuses zero-sum fields (pure)', () => {
