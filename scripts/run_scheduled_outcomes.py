@@ -21,6 +21,7 @@ MAX_RECENT_GAMES = 48  # Three regular-season slates at most can intersect a 14-
 SHARED_CAPTURE_DIR = "selflearning-outcome-capture"
 CONTINUABLE_REASONS = {"application_pending_budget", "application_pending_step_limit"}
 SCOPED_DELIVERY_WINDOW_SECONDS = 285
+MAX_SCOPED_CONTINUATIONS = 2
 
 
 def recent_finals(schedule, now):
@@ -132,7 +133,7 @@ def report(result):
 
 
 def deliver_scoped(plan, pointer, out_dir, token):
-    """Retry only an already verified registration, once and by exact IDs."""
+    """Continue a verified registration by exact IDs within fixed windows."""
     game_id = plan["request"]["game_scope"]["game_id"]
     result = application.send(plan, out_dir, token, max_run_seconds=SCOPED_DELIVERY_WINDOW_SECONDS)
     if result["status"] != "pending" or result.get("reason") not in CONTINUABLE_REASONS:
@@ -149,14 +150,19 @@ def deliver_scoped(plan, pointer, out_dir, token):
     application.need(registration["status"] == "registered" and registration["learning_accepted"] is False
                      and registration["application_id"] == pointer["application_id"]
                      and registration["request_id"] == pointer["request_id"])
-    print(json.dumps({"status": "resuming_registered_application", "reason": result["reason"],
-                      "application_id": pointer["application_id"], "adoption_approved": False}))
-    try:
-        return application.resume_registered(
-            pointer["application_id"], pointer["request_id"], token,
-            game_id=game_id, max_run_seconds=SCOPED_DELIVERY_WINDOW_SECONDS)
-    except application.ApplicationExportError as error:
-        return {"status": "pending", "reason": str(error)}
+    for continuation in range(1, MAX_SCOPED_CONTINUATIONS + 1):
+        print(json.dumps({"status": "resuming_registered_application", "reason": result["reason"],
+                          "application_id": pointer["application_id"], "continuation": continuation,
+                          "adoption_approved": False}))
+        try:
+            result = application.resume_registered(
+                pointer["application_id"], pointer["request_id"], token,
+                game_id=game_id, max_run_seconds=SCOPED_DELIVERY_WINDOW_SECONDS)
+        except application.ApplicationExportError as error:
+            result = {"status": "pending", "reason": str(error)}
+        if result["status"] != "pending" or result.get("reason") not in CONTINUABLE_REASONS:
+            break
+    return result
 
 
 def run(mode, *, env=os.environ):

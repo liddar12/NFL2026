@@ -314,7 +314,7 @@ with tempfile.TemporaryDirectory() as tmp:
  with mock.patch.object(A,'http_transport',side_effect=channel):
   assert error(lambda:A.send(malformed,root/'malformed',TOKEN)) and not timeouts
   first=A.send(p,root/'out',TOKEN,max_steps=1)
- assert timeouts==[(105,True)]
+ assert timeouts==[(135,True)]
  assert first['status']=='pending'
  offset=len(server.calls)
  timeouts.clear()
@@ -325,7 +325,7 @@ with tempfile.TemporaryDirectory() as tmp:
  timeouts.clear()
  with mock.patch.object(A,'http_transport',side_effect=channel):
   final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,game_id='G1')
- assert timeouts==[(50,False),(105,True)]
+ assert timeouts==[(50,False),(135,True)]
  sealed_scope=server.app['seal']['game_scope']
  server=Server();timeouts.clear()
  legacy_pointer=scheduled.capture_pointer(legacy,'101','2')
@@ -341,7 +341,7 @@ with tempfile.TemporaryDirectory() as tmp:
   assert.equal(r.groups, 2);
 });
 
-test('scheduled game resumes the same verified registration once on bounded pending progress', () => {
+test('scheduled game continues the same verified registration at most twice on bounded pending progress', () => {
   const r = py(`
 from scripts import run_scheduled_outcomes as scheduled
 with tempfile.TemporaryDirectory() as tmp:
@@ -358,11 +358,15 @@ with tempfile.TemporaryDirectory() as tmp:
   assert (aid,rid)==(pointer['application_id'],pointer['request_id'])
   assert kwargs=={'game_id':'G1','max_run_seconds':285}
   retries.append(aid)
+  if len(retries)==1:
+   raise A.ApplicationBudgetExceeded('application_pending_budget')
   return original_resume(aid,rid,token,**kwargs,transport=server)
  with mock.patch.object(A,'send',side_effect=first), mock.patch.object(A,'resume_registered',side_effect=resume), redirect_stdout(io.StringIO()) as progress:
   terminal=scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)
  assert terminal['status']=='terminal_original' and terminal['complete_success']
- assert len(retries)==1 and json.loads(progress.getvalue())['adoption_approved'] is False
+ logs=[json.loads(row)for row in progress.getvalue().splitlines()]
+ assert len(retries)==2 and [row['continuation']for row in logs]==[1,2]
+ assert all(row['application_id']==pointer['application_id'] and row['adoption_approved'] is False for row in logs)
  registrations=[route for method,route,_ in server.calls if method=='POST'and route==A.BASE]
  steps=[route for method,route,_ in server.calls if method=='POST'and '/steps/' in route]
  assert len(registrations)==1 and len(steps)==len(set(steps))==2
@@ -373,9 +377,14 @@ with tempfile.TemporaryDirectory() as tmp:
    with mock.patch.object(A,'send',return_value=pending):
     assert scheduled.deliver_scoped(plan,pointer,out_dir,TOKEN)==pending
   no_retry.assert_not_called()
+ pending={'status':'pending','reason':'application_pending_step_limit'}
+ for reason,expected_count in (('application_pending_budget',2),('application_http_exhausted',1)):
+  with mock.patch.object(A,'send',return_value=pending), mock.patch.object(A,'resume_registered',side_effect=A.ApplicationExportError(reason)) as still_pending, redirect_stdout(io.StringIO()):
+   assert scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)=={'status':'pending','reason':reason}
+   assert still_pending.call_count==expected_count
  print(json.dumps({'registered':len(registrations),'steps':len(steps),'continuations':len(retries)}))
 `);
-  assert.deepEqual(r, { registered: 1, steps: 2, continuations: 1 });
+  assert.deepEqual(r, { registered: 1, steps: 2, continuations: 2 });
 });
 
 test('v2 metadata rejects resealed roster members outside the ordered capture plan', () => {
@@ -618,11 +627,11 @@ with mock.patch.object(A.urllib.request,'build_opener',return_value=opener)as bu
  t=A.http_transport(A.ORIGIN,TOKEN,deadline=240,monotonic=lambda:now[0]);status,raw=t('GET',route,None)
  now[0]=238;opener.response=Response(b'x'*70000);status,large=t('GET',route,None)
  now[0]=20.16;opener.response=Response();status,again=t('GET',route,None)
- scoped=A.http_transport(A.ORIGIN,TOKEN,timeout=105,deadline=285,monotonic=lambda:now[0],scoped=True)
+ scoped=A.http_transport(A.ORIGIN,TOKEN,timeout=135,deadline=285,monotonic=lambda:now[0],scoped=True)
  scoped('GET',route,None)
  now[0]=284;scoped('GET',route,None)
  invalid=[error(lambda:A.http_transport(A.ORIGIN,TOKEN,timeout=x))for x in(True,0,-1,51,float('nan'),'50')]
- invalid.extend(error(lambda:A.http_transport(A.ORIGIN,TOKEN,timeout=106,scoped=x))for x in(True,False,'true'))
+ invalid.extend(error(lambda:A.http_transport(A.ORIGIN,TOKEN,timeout=136,scoped=x))for x in(True,False,'true'))
  invalid.extend(error(lambda:A.http_transport(A.ORIGIN,TOKEN,deadline=x))for x in(True,float('nan'),'secret'))
  now[0]=241
  with mock.patch.object(A.urllib.request,'Request',side_effect=AssertionError('must not attach credentials')):
@@ -633,7 +642,7 @@ with mock.patch.object(A.urllib.request,'build_opener',return_value=opener)as bu
  print(json.dumps({'timeouts':calls,'raw':raw.decode(),'large':len(large),'max_read':max(reads),'invalid':all(invalid),'expired':expired,'late':late,
   'proxy_off':any(isinstance(h,urllib.request.ProxyHandler)and h.proxies=={}for h in handlers),'redirect_off':any(isinstance(h,ex._NoRedirect)for h in handlers)}))
 `);
-  assert.deepEqual(r.timeouts, [50, 2, 50, 105, 1, 2]); assert.equal(r.raw, '{}'); assert.equal(r.large, 70000); assert.ok(r.max_read <= 65536);
+  assert.deepEqual(r.timeouts, [50, 2, 50, 135, 1, 2]); assert.equal(r.raw, '{}'); assert.equal(r.large, 70000); assert.ok(r.max_read <= 65536);
   assert.equal(r.invalid, true); assert.equal(r.expired, true); assert.equal(r.late, true); assert.equal(r.proxy_off, true); assert.equal(r.redirect_off, true);
 });
 
