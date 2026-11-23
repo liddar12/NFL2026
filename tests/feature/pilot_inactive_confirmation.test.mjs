@@ -299,6 +299,8 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   assert.doesNotMatch(outcomes.split('      - name: Retain the application pointer')[0], /secrets\./);
   assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES == 'true'/);
   assert.match(outcomes, /max-parallel: 1/);
+  assert.match(outcomes, /timeout 230s python3 -B scripts\/run_scheduled_outcomes.py deliver\n/);
+  assert.match(outcomes, /timeout 425s python3 -B scripts\/run_scheduled_outcomes.py deliver-scoped/);
   assert.match(outcomes, /needs\.select-scoped-outcomes\.outputs\.capture_artifact/);
   assert.match(outcomes, /selflearning-outcome-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-game-/);
   assert.ok(outcomes.indexOf("Validate original run locator") < outcomes.indexOf("Capture raw recent final evidence"));
