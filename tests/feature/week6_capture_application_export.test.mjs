@@ -22,13 +22,13 @@ def fixture(root,large=False,include_roster=False):
  b=f['bundle'](stats_rows=[f['stats_row']()]*33000 if large else None,include_roster=include_roster)
  path=C.save_capture(b,root/'capture-authority');return A.plan(path,A.ORIGIN),b,path
 def hashit(v,k):v[k]=ex.fingerprint({n:x for n,x in v.items()if n!=k});return v
-def sealed(request,sizes=(2,2),held=(),void=False):
- old=request['capture_request'];env=old['envelope'];groups=[]
+def sealed(request,sizes=(2,2),held=(),void=False,game_id='G1'):
+ old=request['capture_request'];env=old['envelope'];groups=[];game_scope=request.get('game_scope')
  byprofile={v['profile']:(k,v)for k,v in env['observations'].items()}
  def component(profile,name):
   oid,obs=byprofile[profile];return {'source':name,'observation_id':oid,'observed_utc':obs['observed_utc']}
  for i,size in enumerate(sizes):
-  scope=[2026,'G1','fixture-player-'+str(i),'wr_rec_yds','home']
+  scope=[2026,game_id,'fixture-player-'+str(i),'wr_rec_yds','home']
   mem={'scope':scope,'receipt_ids':sorted(ex.fingerprint('r'+str(i)+'-'+str(n))for n in range(size)),
    'source_receipt_ids':sorted(ex.fingerprint('s'+str(i)+'-'+str(n))for n in range(size)),
    'generation_object_ids':[ex.fingerprint('generation'+str(i))]}
@@ -38,7 +38,7 @@ def sealed(request,sizes=(2,2),held=(),void=False):
    sources['nflverse.rosters']=component(C.ROSTERS_PROFILE,'nflverse.rosters')
   fact={'week':6,'actual':None if void else 80.0,'played':not void,'status':'VOID'if void else'FINAL',
    'reason':'did_not_play'if void else None,'participation_basis':'r106_team_snap_absence_inference'if void else'stat_row',
-   'game':{'season':2026,'week':6,'game_id':'G1','kickoff_utc':f['KICKOFF'],'home':'SEA','away':'LAR','state':'FINAL'},'source_observations':sources}
+   'game':{'season':2026,'week':6,'game_id':game_id,'kickoff_utc':f['KICKOFF'],'home':'SEA','away':'LAR','state':'FINAL'},'source_observations':sources}
   h=i in held or size>500
   groups.append({'group_id':ex.fingerprint(scope),**mem,'membership_id':ex.fingerprint({'binding_policy':A.BINDING,**mem}),
    'status':'withheld'if h else'planned','reason_codes':['missing_measurement']if h else[],
@@ -47,10 +47,13 @@ def sealed(request,sizes=(2,2),held=(),void=False):
  for g in groups:
   if g['status']=='planned':
    n=len(batches);g['batch_ordinal']=n;batches.append({'ordinal':n,'step_id':A.step_id(request['application_id'],n),'group_ids':[g['group_id']],'member_count':len(g['receipt_ids'])})
+ members={'binding_policy':A.BINDING,'groups':[g['membership_id']for g in groups]}
+ if game_scope is not None:members['game_scope_id']=ex.fingerprint(game_scope)
  seal={'version':2,'kind':'nfl.capture_application_seal.v2','application_id':request['application_id'],'request_id':ex.fingerprint(request),
-  'capture_intent_id':old['delivery_id'],'capture_id':old['capture_id'],'execution_policy':A.POLICY,'binding_policy':A.BINDING,
-  'season':2026,'weeks':[6],'source_watermark':'10','membership_id':ex.fingerprint({'binding_policy':A.BINDING,'groups':[g['membership_id']for g in groups]}),
-  'source_vector_id':A.vector(env),'limits':{'members':500,'observations':500,'revisions':500,'rpc_bytes':8388608},'groups':groups,'batches':batches}
+  'capture_intent_id':A.capture_intent_id(request),'capture_id':old['capture_id'],'execution_policy':A.POLICY,'binding_policy':A.BINDING,
+  'season':2026,'weeks':[6],'source_watermark':'10','membership_id':ex.fingerprint(members),
+  'source_vector_id':A.vector(env,game_scope),'limits':{'members':500,'observations':500,'revisions':500,'rpc_bytes':8388608},'groups':groups,'batches':batches}
+ if game_scope is not None:seal['game_scope']=game_scope
  return hashit(seal,'seal_id')
 def held_result(g,reasons=None):
  return {k:copy.deepcopy(g[k])for k in('group_id','scope','receipt_ids','source_receipt_ids','generation_object_ids','membership_id')}|{
@@ -270,6 +273,52 @@ with tempfile.TemporaryDirectory() as tmp:
     [1, { status: 'pending', reason: 'application_protocol_refused', adoption_approved: false }],
   ]);
   assert.deepEqual(r.methods, ['GET']);
+});
+
+test('one scoped outcome application keeps legacy authority, distinct identities and pinned recovery', () => {
+  const r = py(`
+from scripts import run_scheduled_outcomes as scheduled
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);legacy,bundle,path=fixture(root,include_roster=True)
+ schedule={'season':2026,'games':[{'game_id':'G1','week':6,'kickoff_utc':f['KICKOFF'],
+                                  'status':'STATUS_FINAL','home':'SEA','away':'LAR'}]}
+ now=C._instant('2026-09-05T00:00:00Z')
+ scope,game=scheduled.recent_game(schedule,now,'G1')
+ scheduled._verify_selected_final(bundle,scope,game)
+ missing={**game,'game_id':'G2'}
+ assert scheduled.automatic_selection([game,missing],bundle)==(['G1'],1)
+ assert error(lambda:scheduled.automatic_selection([game,game],bundle))
+ p=A.plan(path,A.ORIGIN,scope=scope)
+ q=A.plan(path,A.ORIGIN,scope={**scope,'game_id':'G2'})
+ assert p['capture_plan']==q['capture_plan']==legacy['capture_plan']
+ request=p['request'];original=request['capture_request']
+ assert request['application_id']==ex.fingerprint({'version':2,'kind':'nfl.capture_application.v2',
+  'capture_intent_id':original['delivery_id'],'execution_policy':A.POLICY,'game_scope':scope})
+ assert A.capture_intent_id(request)==ex.fingerprint({'capture_intent_id':original['delivery_id'],'game_scope':scope})
+ assert len({x['request']['application_id'] for x in (p,q,legacy)})==3
+ assert len({A.capture_intent_id(x['request']) for x in (p,q,legacy)})==3
+ assert A.vector(original['envelope'],scope)!=A.vector(original['envelope'])
+ bad=[{**request,'game_scope':None},{**request,'game_scope':{**scope,'game_id':'G2'}},
+      {**request,'game_scope':{**scope,'season':2025}},{**request,'game_scope':{**scope,'week':7}}]
+ assert all(error(lambda:A.route_valid('POST',A.BASE,ex.encoded(row))) for row in bad)
+ assert error(lambda:A.seal_valid(sealed(request,game_id='G2',held=(0,1)),request))
+ assert error(lambda:scheduled.recent_game(schedule,now,'../../elsewhere'))
+ assert error(lambda:scheduled.recent_game(schedule,now,'G2'))
+ assert error(lambda:scheduled._verify_selected_final(bundle,scope,{**game,'home':'LAR'}))
+ pointer=scheduled.capture_pointer(p,'101','2')
+ server=Server()
+ first=send(p,root/'out',server,max_steps=1)
+ assert first['status']=='pending'
+ offset=len(server.calls)
+ assert error(lambda:A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G2'))
+ assert all(method=='GET' for method, _, _ in server.calls[offset:])
+ final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G1')
+ print(json.dumps({'scope':server.app['seal']['game_scope'],'same_capture':True,
+  'terminal':final['status'],'groups':final['result']['counts']['accepted_groups']}))
+`);
+  assert.deepEqual(r.scope, { policy: 'nfl.capture_game_scope_v1', season: 2026, week: 6, game_id: 'G1' });
+  assert.equal(r.terminal, 'terminal_original');
+  assert.equal(r.groups, 2);
 });
 
 test('v2 metadata rejects resealed roster members outside the ordered capture plan', () => {

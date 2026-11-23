@@ -295,8 +295,13 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   assert.match(outcomes, /path: \$\{\{ runner.temp \}\}\/selflearning-outcomes\/pointer.json\n/);
   assert.ok(outcomes.indexOf('Retain the application pointer before delivery') < outcomes.indexOf('Apply the current capture'));
   assert.deepEqual([...outcomes.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
-    ['SELFLEARN_NFL_OUTCOME_INGEST_TOKEN', 'SELFLEARN_NFL_OUTCOME_INGEST_TOKEN']);
+    Array(3).fill('SELFLEARN_NFL_OUTCOME_INGEST_TOKEN'));
   assert.doesNotMatch(outcomes.split('      - name: Retain the application pointer')[0], /secrets\./);
+  assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES == 'true'/);
+  assert.match(outcomes, /max-parallel: 1/);
+  assert.match(outcomes, /needs\.select-scoped-outcomes\.outputs\.capture_artifact/);
+  assert.match(outcomes, /selflearning-outcome-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-game-/);
+  assert.ok(outcomes.indexOf("Validate original run locator") < outcomes.indexOf("Capture raw recent final evidence"));
   const observerPath = join('.github', 'workflows', 'public-parlay-observation.yml');
   const observer = readFileSync(join(ROOT, observerPath), 'utf8');
   assert.match(observer, /workflows: \[daily-pipeline, gameday\]/);

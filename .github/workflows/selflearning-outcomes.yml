@@ -7,12 +7,20 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
+      game_id:
+        description: Optional exact game ID for the game-scoped canary
+        required: false
+        type: string
       source_run_id:
         description: Run ID of an existing outcome application to recover
         required: false
         type: string
       source_run_attempt:
         description: Attempt that retained the application pointer
+        required: false
+        type: string
+      source_game_id:
+        description: Game ID when recovering a pointer from an automated scoped run
         required: false
         type: string
 
@@ -29,7 +37,8 @@ jobs:
     if: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' &&
       github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' &&
+       (vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES != 'true' &&
+        github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.head_branch == 'main' &&
         github.event.workflow_run.head_repository.id == github.event.repository.id &&
         (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'workflow_dispatch'))) }}
@@ -42,10 +51,31 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Validate scoped canary input
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.game_id != '' }}
+        env:
+          OUTCOME_GAME_ID: ${{ inputs.game_id }}
+          OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          OUTCOME_SOURCE_GAME_ID: ${{ inputs.source_game_id }}
+        run: |
+          [[ "$OUTCOME_GAME_ID" =~ ^[A-Za-z0-9_-]{1,200}$ && -z "$OUTCOME_SOURCE_RUN_ID" && -z "$OUTCOME_SOURCE_RUN_ATTEMPT" && -z "$OUTCOME_SOURCE_GAME_ID" ]]
+
+      - name: Validate original run locator
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.source_run_id != '' || inputs.source_run_attempt != '' || inputs.source_game_id != '') }}
+        env:
+          OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          OUTCOME_SOURCE_GAME_ID: ${{ inputs.source_game_id }}
+        run: |
+          [[ "$OUTCOME_SOURCE_RUN_ID" =~ ^[1-9][0-9]{0,18}$ && "$OUTCOME_SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,18}$ ]] &&
+          [[ -z "$OUTCOME_SOURCE_GAME_ID" || "$OUTCOME_SOURCE_GAME_ID" =~ ^[A-Za-z0-9_-]{1,200}$ ]]
+
       - name: Capture raw recent final evidence
         if: ${{ github.event_name == 'workflow_run' || (inputs.source_run_id == '' && inputs.source_run_attempt == '') }}
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          OUTCOME_GAME_ID: ${{ inputs.game_id }}
         run: timeout 180s python3 -B scripts/run_scheduled_outcomes.py prepare
 
       - name: Retain the application pointer before delivery
@@ -64,19 +94,11 @@ jobs:
           SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
         run: timeout 230s python3 -B scripts/run_scheduled_outcomes.py deliver
 
-      - name: Validate original run locator
-        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.source_run_id != '' || inputs.source_run_attempt != '') }}
-        env:
-          OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
-        run: |
-          [[ "$OUTCOME_SOURCE_RUN_ID" =~ ^[1-9][0-9]{0,18}$ && "$OUTCOME_SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,18}$ ]]
-
       - name: Download only the original application pointer
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id != '' && inputs.source_run_attempt != '' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: selflearning-outcome-${{ inputs.source_run_id }}-${{ inputs.source_run_attempt }}
+          name: ${{ inputs.source_game_id != '' && format('selflearning-outcome-{0}-{1}-game-{2}', inputs.source_run_id, inputs.source_run_attempt, inputs.source_game_id) || format('selflearning-outcome-{0}-{1}', inputs.source_run_id, inputs.source_run_attempt) }}
           path: ${{ runner.temp }}/selflearning-outcome-pointer
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
@@ -89,4 +111,109 @@ jobs:
           SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
           OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          OUTCOME_SOURCE_GAME_ID: ${{ inputs.source_game_id }}
         run: timeout 200s python3 -B scripts/run_scheduled_outcomes.py recover
+
+  select-scoped-outcomes:
+    if: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' &&
+      vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES == 'true' &&
+      github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.id == github.event.repository.id &&
+      (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      capture_artifact: selflearning-outcome-capture-${{ github.run_id }}-${{ github.run_attempt }}
+      game_ids: ${{ steps.select.outputs.game_ids }}
+      selected_count: ${{ steps.select.outputs.selected_count }}
+      unverified_count: ${{ steps.select.outputs.unverified_count }}
+    steps:
+      - name: Checkout trusted main source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify recent final games against one raw capture
+        id: select
+        env:
+          NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES: ${{ vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES }}
+        run: timeout 180s python3 -B scripts/run_scheduled_outcomes.py select
+
+      - name: Retain shared public source bytes for the game jobs
+        if: ${{ steps.select.outputs.selected_count != '0' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: selflearning-outcome-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/selflearning-outcome-capture
+          if-no-files-found: error
+          retention-days: 14
+
+  scoped-outcomes:
+    needs: select-scoped-outcomes
+    if: ${{ needs.select-scoped-outcomes.result == 'success' && needs.select-scoped-outcomes.outputs.selected_count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        game_id: ${{ fromJSON(needs.select-scoped-outcomes.outputs.game_ids) }}
+    name: outcomes game ${{ matrix.game_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download the selector's exact shared public capture
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.select-scoped-outcomes.outputs.capture_artifact }}
+          path: ${{ runner.temp }}/selflearning-outcome-capture
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.run_id }}
+
+      - name: Verify and plan the exact game
+        env:
+          NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES: ${{ vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES }}
+          OUTCOME_GAME_ID: ${{ matrix.game_id }}
+          OUTCOME_SHARED_CAPTURE: 'true'
+        run: timeout 180s python3 -B scripts/run_scheduled_outcomes.py prepare
+
+      - name: Retain each application's recovery pointer before delivery
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: selflearning-outcome-${{ github.run_id }}-${{ github.run_attempt }}-game-${{ matrix.game_id }}
+          path: ${{ runner.temp }}/selflearning-outcomes/pointer.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Apply this game's capture
+        env:
+          NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
+        run: timeout 230s python3 -B scripts/run_scheduled_outcomes.py deliver
+
+  summarize-scoped-outcomes:
+    needs: [select-scoped-outcomes, scoped-outcomes]
+    if: ${{ always() && needs.select-scoped-outcomes.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report game selection and application status
+        env:
+          SELECTED_COUNT: ${{ needs.select-scoped-outcomes.outputs.selected_count }}
+          UNVERIFIED_COUNT: ${{ needs.select-scoped-outcomes.outputs.unverified_count }}
+          SCOPED_RESULT: ${{ needs.scoped-outcomes.result }}
+        run: |
+          [[ "$SELECTED_COUNT" =~ ^[0-9]+$ && "$UNVERIFIED_COUNT" =~ ^[0-9]+$ ]]
+          printf 'Selected final games: %s\nUnverified final games: %s\nApplication jobs: %s\n' "$SELECTED_COUNT" "$UNVERIFIED_COUNT" "$SCOPED_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$UNVERIFIED_COUNT" == 0 && ( "$SELECTED_COUNT" == 0 || "$SCOPED_RESULT" == success ) ]]
