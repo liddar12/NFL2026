@@ -321,6 +321,43 @@ with tempfile.TemporaryDirectory() as tmp:
   assert.equal(r.groups, 2);
 });
 
+test('scheduled game resumes the same verified registration once on bounded pending progress', () => {
+  const r = py(`
+from scripts import run_scheduled_outcomes as scheduled
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);legacy,_,path=fixture(root,include_roster=True)
+ scope={'policy':A.GAME_SCOPE_POLICY,'season':2026,'week':6,'game_id':'G1'}
+ plan=A.plan(path,A.ORIGIN,scope=scope)
+ pointer=scheduled.capture_pointer(plan,'101','2');server=Server()
+ original_send,original_resume=A.send,A.resume_registered
+ retries=[]
+ def first(*args, **kwargs):
+  assert kwargs=={'max_run_seconds':210}
+  return original_send(*args,**kwargs,max_steps=1,transport=server)
+ def resume(aid,rid,token,**kwargs):
+  assert (aid,rid)==(pointer['application_id'],pointer['request_id'])
+  assert kwargs=={'game_id':'G1','max_run_seconds':180}
+  retries.append(aid)
+  return original_resume(aid,rid,token,**kwargs,transport=server)
+ with mock.patch.object(A,'send',side_effect=first), mock.patch.object(A,'resume_registered',side_effect=resume), redirect_stdout(io.StringIO()) as progress:
+  terminal=scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)
+ assert terminal['status']=='terminal_original' and terminal['complete_success']
+ assert len(retries)==1 and json.loads(progress.getvalue())['adoption_approved'] is False
+ registrations=[route for method,route,_ in server.calls if method=='POST'and route==A.BASE]
+ steps=[route for method,route,_ in server.calls if method=='POST'and '/steps/' in route]
+ assert len(registrations)==1 and len(steps)==len(set(steps))==2
+
+ with mock.patch.object(A,'resume_registered') as no_retry:
+  for reason,out_dir in (('application_http_exhausted',root/'out'),('application_pending_budget',root/'not_registered')):
+   pending={'status':'pending','reason':reason}
+   with mock.patch.object(A,'send',return_value=pending):
+    assert scheduled.deliver_scoped(plan,pointer,out_dir,TOKEN)==pending
+  no_retry.assert_not_called()
+ print(json.dumps({'registered':len(registrations),'steps':len(steps),'continuations':len(retries)}))
+`);
+  assert.deepEqual(r, { registered: 1, steps: 2, continuations: 1 });
+});
+
 test('v2 metadata rejects resealed roster members outside the ordered capture plan', () => {
   const r = py(`
 with tempfile.TemporaryDirectory() as tmp:

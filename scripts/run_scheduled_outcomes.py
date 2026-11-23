@@ -19,6 +19,7 @@ TOKEN = "SELFLEARN_NFL_OUTCOME_INGEST_TOKEN"
 POINTER_FIELDS = {"version", "run_id", "run_attempt", "application_id", "request_id"}
 MAX_RECENT_GAMES = 48  # Three regular-season slates at most can intersect a 14-day window.
 SHARED_CAPTURE_DIR = "selflearning-outcome-capture"
+CONTINUABLE_REASONS = {"application_pending_budget", "application_pending_step_limit"}
 
 
 def recent_finals(schedule, now):
@@ -129,6 +130,33 @@ def report(result):
     return 0 if terminal["processing_complete"] else 1
 
 
+def deliver_scoped(plan, pointer, out_dir, token):
+    """Retry only an already verified registration, once and by exact IDs."""
+    game_id = plan["request"]["game_scope"]["game_id"]
+    result = application.send(plan, out_dir, token, max_run_seconds=210)
+    if result["status"] != "pending" or result.get("reason") not in CONTINUABLE_REASONS:
+        return result
+
+    root, target = application.paths(plan, out_dir)
+    path = handoff.export._delivery_path(root, *target.relative_to(root).parts, "registration", "original.json")
+    if not path.is_file():
+        return result
+    registration = handoff.queue.read(path)
+    application.result_base(registration, application.REG_KEYS,
+                            "nfl.capture_application_registration.v2", "sealed_application_only")
+    application.hashed(registration, "registration_id")
+    application.need(registration["status"] == "registered" and registration["learning_accepted"] is False
+                     and registration["application_id"] == pointer["application_id"]
+                     and registration["request_id"] == pointer["request_id"])
+    print(json.dumps({"status": "resuming_registered_application", "reason": result["reason"],
+                      "application_id": pointer["application_id"], "adoption_approved": False}))
+    try:
+        return application.resume_registered(pointer["application_id"], pointer["request_id"], token,
+                                             game_id=game_id, max_run_seconds=180)
+    except application.ApplicationExportError as error:
+        return {"status": "pending", "reason": str(error)}
+
+
 def run(mode, *, env=os.environ):
     if (env.get("NFL_SELFLEARN_OUTCOME_MODE") != "record"
             or env.get("GITHUB_REPOSITORY", "").lower() != handoff.REPOSITORY
@@ -195,13 +223,16 @@ def run(mode, *, env=os.environ):
             handoff.export._immutable(root / "pointer.json", capture_pointer(plan, run_id, attempt), root=root)
             print('{"status":"prepared","adoption_approved":false}')
             return 0
-        if mode != "deliver":
+        if mode not in ("deliver", "deliver-scoped"):
             raise ValueError("invalid_outcome_mode")
         if not (root / "pointer.json").is_file():
+            handoff.need(mode == "deliver")
             return 0
         pointer = read_pointer(root / "pointer.json", run_id, attempt)
         plan = handoff.queue.read(root / "plan.json")
         handoff.need(capture_pointer(plan, run_id, attempt) == pointer)
+        if mode == "deliver-scoped":
+            return report(deliver_scoped(plan, pointer, root / "outbox", env[TOKEN]))
         return report(application.send(plan, root / "outbox", env[TOKEN], max_run_seconds=210))
     except Exception:
         print('{"status":"outcome_collection_held","adoption_approved":false}')
@@ -210,7 +241,7 @@ def run(mode, *, env=os.environ):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("select", "prepare", "deliver", "recover"))
+    parser.add_argument("mode", choices=("select", "prepare", "deliver", "deliver-scoped", "recover"))
     return run(parser.parse_args().mode)
 
 
