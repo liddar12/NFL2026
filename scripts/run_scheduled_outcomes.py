@@ -21,7 +21,7 @@ MAX_RECENT_GAMES = 48  # Three regular-season slates at most can intersect a 14-
 SHARED_CAPTURE_DIR = "selflearning-outcome-capture"
 CONTINUABLE_REASONS = {"application_pending_budget", "application_pending_step_limit"}
 SCOPED_DELIVERY_WINDOW_SECONDS = 285
-MAX_SCOPED_CONTINUATIONS = 2
+MAX_SCOPED_CONTINUATIONS = 3
 
 
 def recent_finals(schedule, now):

@@ -326,6 +326,9 @@ with tempfile.TemporaryDirectory() as tmp:
  with mock.patch.object(A,'http_transport',side_effect=channel):
   final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,game_id='G1')
  assert timeouts==[(50,False),(135,True)]
+ offset=len(server.calls)
+ replay=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G1')
+ assert replay==final and all(method=='GET' for method,_,_ in server.calls[offset:])
  sealed_scope=server.app['seal']['game_scope']
  server=Server();timeouts.clear()
  legacy_pointer=scheduled.capture_pointer(legacy,'101','2')
@@ -341,7 +344,7 @@ with tempfile.TemporaryDirectory() as tmp:
   assert.equal(r.groups, 2);
 });
 
-test('scheduled game continues the same verified registration at most twice on bounded pending progress', () => {
+test('scheduled game continues verified exact IDs up to three times only while pending on bounded progress', () => {
   const r = py(`
 from scripts import run_scheduled_outcomes as scheduled
 with tempfile.TemporaryDirectory() as tmp:
@@ -358,14 +361,14 @@ with tempfile.TemporaryDirectory() as tmp:
   assert (aid,rid)==(pointer['application_id'],pointer['request_id'])
   assert kwargs=={'game_id':'G1','max_run_seconds':285}
   retries.append(aid)
-  if len(retries)==1:
+  if len(retries)<3:
    raise A.ApplicationBudgetExceeded('application_pending_budget')
   return original_resume(aid,rid,token,**kwargs,transport=server)
  with mock.patch.object(A,'send',side_effect=first), mock.patch.object(A,'resume_registered',side_effect=resume), redirect_stdout(io.StringIO()) as progress:
   terminal=scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)
  assert terminal['status']=='terminal_original' and terminal['complete_success']
  logs=[json.loads(row)for row in progress.getvalue().splitlines()]
- assert len(retries)==2 and [row['continuation']for row in logs]==[1,2]
+ assert len(retries)==3 and [row['continuation']for row in logs]==[1,2,3]
  assert all(row['application_id']==pointer['application_id'] and row['adoption_approved'] is False for row in logs)
  registrations=[route for method,route,_ in server.calls if method=='POST'and route==A.BASE]
  steps=[route for method,route,_ in server.calls if method=='POST'and '/steps/' in route]
@@ -378,13 +381,17 @@ with tempfile.TemporaryDirectory() as tmp:
     assert scheduled.deliver_scoped(plan,pointer,out_dir,TOKEN)==pending
   no_retry.assert_not_called()
  pending={'status':'pending','reason':'application_pending_step_limit'}
- for reason,expected_count in (('application_pending_budget',2),('application_http_exhausted',1)):
-  with mock.patch.object(A,'send',return_value=pending), mock.patch.object(A,'resume_registered',side_effect=A.ApplicationExportError(reason)) as still_pending, redirect_stdout(io.StringIO()):
-   assert scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)=={'status':'pending','reason':reason}
+ for stop,expected,expected_count in (
+   (A.ApplicationBudgetExceeded('application_pending_budget'),{'status':'pending','reason':'application_pending_budget'},3),
+   (A.ApplicationExportError('application_http_exhausted'),{'status':'pending','reason':'application_http_exhausted'},2),
+   (terminal,terminal,2)):
+  allowed=[A.ApplicationBudgetExceeded('application_pending_budget'),stop,stop]
+  with mock.patch.object(A,'send',return_value=pending), mock.patch.object(A,'resume_registered',side_effect=allowed) as still_pending, redirect_stdout(io.StringIO()):
+   assert scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)==expected
    assert still_pending.call_count==expected_count
  print(json.dumps({'registered':len(registrations),'steps':len(steps),'continuations':len(retries)}))
 `);
-  assert.deepEqual(r, { registered: 1, steps: 2, continuations: 2 });
+  assert.deepEqual(r, { registered: 1, steps: 2, continuations: 3 });
 });
 
 test('v2 metadata rejects resealed roster members outside the ordered capture plan', () => {
