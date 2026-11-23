@@ -294,7 +294,7 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   ], { encoding: 'utf8', env: { ...process.env, OUTCOME_GAME_ID: gameId } }).trim());
   assert.deepEqual(modes, [
     '230s python3 -B scripts/run_scheduled_outcomes.py deliver',
-    '425s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped',
+    '600s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped',
   ]);
   assert.match(outcomes, /- name: Resume the registered application\n(?:(?!      - name:)[\s\S])*?run: timeout 200s python3 -B scripts\/run_scheduled_outcomes.py recover/);
   assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_MODE == 'record'/);
@@ -311,7 +311,7 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES == 'true'/);
   assert.match(outcomes, /max-parallel: 1/);
   assert.match(outcomes, /timeout 230s python3 -B scripts\/run_scheduled_outcomes.py deliver\n/);
-  assert.match(outcomes, /timeout 425s python3 -B scripts\/run_scheduled_outcomes.py deliver-scoped/);
+  assert.equal([...outcomes.matchAll(/timeout 600s python3 -B scripts\/run_scheduled_outcomes.py deliver-scoped/g)].length, 2);
   assert.match(outcomes, /needs\.select-scoped-outcomes\.outputs\.capture_artifact/);
   assert.match(outcomes, /selflearning-outcome-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-game-/);
   assert.ok(outcomes.indexOf("Validate original run locator") < outcomes.indexOf("Capture raw recent final evidence"));
