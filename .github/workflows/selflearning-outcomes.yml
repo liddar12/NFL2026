@@ -7,6 +7,10 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
+      game_id:
+        description: Optional exact game ID for the game-scoped canary
+        required: false
+        type: string
       source_run_id:
         description: Run ID of an existing outcome application to recover
         required: false
@@ -42,10 +46,20 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Validate scoped canary input
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.game_id != '' }}
+        env:
+          OUTCOME_GAME_ID: ${{ inputs.game_id }}
+          OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          [[ "$OUTCOME_GAME_ID" =~ ^[A-Za-z0-9_-]{1,200}$ && -z "$OUTCOME_SOURCE_RUN_ID" && -z "$OUTCOME_SOURCE_RUN_ATTEMPT" ]]
+
       - name: Capture raw recent final evidence
         if: ${{ github.event_name == 'workflow_run' || (inputs.source_run_id == '' && inputs.source_run_attempt == '') }}
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
+          OUTCOME_GAME_ID: ${{ inputs.game_id }}
         run: timeout 180s python3 -B scripts/run_scheduled_outcomes.py prepare
 
       - name: Retain the application pointer before delivery

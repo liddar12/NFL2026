@@ -24,6 +24,9 @@ from scripts import export_outcome_capture as O, export_learning as ex, capture_
 
 ORIGIN, PRODUCER, BINDING = O.ORIGIN, O.PRODUCER, O.POLICY
 POLICY = "sealed_whole_groups_v2"
+GAME_SCOPE_POLICY = "nfl.capture_game_scope_v1"
+GAME_SCOPE_ID = re.compile(r"[A-Za-z0-9_-]{1,200}\Z")
+REQUEST_KEYS = {"version", "kind", "execution_policy", "capture_request", "application_id"}
 BASE = "/api/v2/nfl/capture-applications"
 GAME_SOURCE = "espn.scoreboard"
 STAT_SOURCE = "nflverse.stats_player"
@@ -113,10 +116,36 @@ def step_id(aid, ordinal):
     return ex.fingerprint({"version": 2, "kind": "nfl.capture_application_step.v2", "application_id": aid, "ordinal": ordinal})
 
 
-def request_for(original):
+def game_scope(value, manifest):
+    keys(value, {"policy", "season", "week", "game_id"})
+    need(value["policy"] == GAME_SCOPE_POLICY)
+    need(integer(value["season"], 2000, 2100) == manifest["season"])
+    need(integer(value["week"], 1, 18) in manifest["weeks"])
+    game_id = value["game_id"]
+    need(type(game_id) is str and GAME_SCOPE_ID.fullmatch(game_id))
+    return dict(value)
+
+
+def capture_intent_id(request):
+    delivery_id = request["capture_request"]["delivery_id"]
+    if "game_scope" in request:
+        return ex.fingerprint({"capture_intent_id": delivery_id, "game_scope": request["game_scope"]})
+    return delivery_id
+
+
+def request_for(original, scope=None):
     identity = {"version": 2, "kind": "nfl.capture_application.v2", "capture_intent_id": original["delivery_id"], "execution_policy": POLICY}
+    fields = {} if scope is None else {"game_scope": game_scope(scope, original["envelope"]["manifest"])}
     return {"version": 2, "kind": "nfl.capture_application_request.v2", "execution_policy": POLICY,
-            "capture_request": original, "application_id": ex.fingerprint(identity)}
+            "capture_request": original, "application_id": ex.fingerprint({**identity, **fields}), **fields}
+
+
+def validate_request(value, destination):
+    fields = {"game_scope"} if type(value) is dict and "game_scope" in value else set()
+    keys(value, REQUEST_KEYS | fields)
+    original = value["capture_request"]
+    metadata(original, destination)
+    same(value, request_for(original, value.get("game_scope")))
 
 
 def metadata(original, destination):
@@ -170,10 +199,10 @@ def metadata(original, destination):
     O._body(request_for(original))
 
 
-def plan(capture_path, destination):
+def plan(capture_path, destination, *, scope=None):
     old = O.plan(capture_path, destination)
-    value = {"version": 2, "kind": "nfl.capture_application_plan.v2", "capture_plan": old, "request": request_for(old["request"])}
     metadata(old["request"], old["destination"])
+    value = {"version": 2, "kind": "nfl.capture_application_plan.v2", "capture_plan": old, "request": request_for(old["request"], scope)}
     result = {**value, "plan_id": ex.fingerprint(value)}
     O._body(result)
     return result
@@ -190,7 +219,8 @@ def validate_plan(value):
     integer(old["raw_bytes"], 1, capture.CAPTURE_LIMIT);integer(old["unique_chunks"], 1, capture.CAPTURE_LIMIT // O.CHUNK_BYTES + 20)
     need(type(old["whole_capture_member_limit"]) is int and old["whole_capture_member_limit"] == 500 and old["fragmentation_allowed"] is False
          and old["membership_capacity"] == "receiver_owned_unknown_until_complete_binding")
-    hashed(old, "plan_id");metadata(old["request"], old["destination"]);same(value["request"], request_for(old["request"]))
+    hashed(old, "plan_id");validate_request(value["request"], old["destination"])
+    same(value["request"]["capture_request"], old["request"])
     return copy.deepcopy(value)
 
 
@@ -221,13 +251,13 @@ def prepare(value, out_dir):
             "network_used": False, "learning_accepted": False}
 
 
-def vector(envelope):
+def vector(envelope, scope=None):
     rows = []
     for source in envelope["observations"].values():
         clock = capture._instant(source["observed_utc"]).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         rows.append([source[k] for k in ("profile", "season", "week", "raw_sha256", "raw_bytes")] + [clock])
     rows.sort(key=lambda r: (r[0], r[1], -1 if r[2] is None else r[2]))
-    return ex.fingerprint(rows)
+    return ex.fingerprint(rows if scope is None else {"sources": rows, "game_scope": scope})
 
 
 def fact(value, scope, seal, request):
@@ -269,14 +299,17 @@ def fact(value, scope, seal, request):
 
 
 def seal_valid(seal, request):
-    keys(seal, SEAL_KEYS)
+    scoped = request.get("game_scope")
+    keys(seal, SEAL_KEYS | ({"game_scope"} if scoped is not None else set()))
     old = request["capture_request"];manifest = old["envelope"]["manifest"]
+    if scoped is not None:
+        same(seal["game_scope"], game_scope(scoped, manifest))
     need(type(seal["version"]) is int and seal["version"] == 2 and seal["kind"] == "nfl.capture_application_seal.v2"
          and seal["application_id"] == request["application_id"] and seal["request_id"] == ex.fingerprint(request)
-         and seal["capture_intent_id"] == old["delivery_id"] and seal["capture_id"] == old["capture_id"]
+         and seal["capture_intent_id"] == capture_intent_id(request) and seal["capture_id"] == old["capture_id"]
          and seal["execution_policy"] == POLICY and seal["binding_policy"] == BINDING
-         and type(seal["season"]) is int and seal["season"] == manifest["season"] and seal["source_vector_id"] == vector(old["envelope"]))
-    same(seal["weeks"], manifest["weeks"]);sequence(seal["source_watermark"])
+         and type(seal["season"]) is int and seal["season"] == manifest["season"] and seal["source_vector_id"] == vector(old["envelope"], scoped))
+    same(seal["weeks"], manifest["weeks"] if scoped is None else [scoped["week"]]);sequence(seal["source_watermark"])
     keys(seal["limits"], {"members", "observations", "revisions", "rpc_bytes"})
     for name, size in seal["limits"].items():
         integer(size, 1, 8 * 1024 * 1024 if name == "rpc_bytes" else 500)
@@ -286,6 +319,8 @@ def seal_valid(seal, request):
     for group in groups:
         keys(group, SEALED_KEYS);membership(group);reasons(group["reason_codes"])
         need(group["scope"][0] == seal["season"] and not seen.intersection(group["receipt_ids"]) and not source_ids.intersection(group["source_receipt_ids"]))
+        if scoped is not None:
+            need(group["scope"][1] == scoped["game_id"])
         seen.update(group["receipt_ids"]);source_ids.update(group["source_receipt_ids"]);gids.append(group["group_id"])
         need(group["status"] in ("planned", "withheld") and (group["status"] == "planned") == (not group["reason_codes"]))
         if group["status"] == "planned":
@@ -295,7 +330,10 @@ def seal_valid(seal, request):
             planned[group["group_id"]] = group
         else:
             need(all(group[k] is None for k in ("batch_ordinal", "fact", "fact_id")))
-    need(gids == sorted(set(gids)) and len(seen) <= MAX_MEMBERS and seal["membership_id"] == ex.fingerprint({"binding_policy": BINDING, "groups": [g["membership_id"] for g in groups]}))
+    membership_identity = {"binding_policy": BINDING, "groups": [g["membership_id"] for g in groups]}
+    if scoped is not None:
+        membership_identity["game_scope_id"] = ex.fingerprint(scoped)
+    need(gids == sorted(set(gids)) and len(seen) <= MAX_MEMBERS and seal["membership_id"] == ex.fingerprint(membership_identity))
     assigned = []
     for ordinal, assignment in enumerate(batches):
         keys(assignment, {"ordinal", "step_id", "group_ids", "member_count"})
@@ -461,8 +499,7 @@ def route_valid(method, path, body):
         if match is None:
             value = ex._json(body);need(body == ex.encoded(value))
             if path == BASE:
-                keys(value, {"version", "kind", "execution_policy", "capture_request", "application_id"})
-                metadata(value["capture_request"], ORIGIN);same(value, request_for(value["capture_request"]))
+                validate_request(value, ORIGIN)
             else:
                 keys(value, {"version", "kind", "scope", "chunk_id", "raw_bytes", "encoding", "data"})
                 need(type(value["data"]) is str)
@@ -591,7 +628,10 @@ def read_application(request, transport, attempts, sleep, check, *, request_id=N
             raise ApplicationExportError("application_protocol_refused")
         output[view] = rows
     need(len(output["registration"]) == len(output["status"]) == 1 and len(output["terminal"]) <= 1)
-    header = output["registration"][0];keys(header, {"request", "seal_header", "registration"});keys(header["seal_header"], SEAL_KEYS - {"groups", "batches"})
+    header = output["registration"][0];keys(header, {"request", "seal_header", "registration"})
+    need(type(header["request"]) is dict)
+    scoped = {"game_scope"} if "game_scope" in header["request"] else set()
+    keys(header["seal_header"], (SEAL_KEYS | scoped) - {"groups", "batches"})
     result = {"request": header["request"], "seal": {**header["seal_header"], "groups": [r["sealed_group"] for r in output["groups"]], "batches": [r["assignment"] for r in output["batches"]]},
         "registration": header["registration"], "groups": output["groups"], "batches": output["batches"], "status": output["status"][0],
         "terminal": output["terminal"][0] if output["terminal"] else None, "ledger_watermark": fence}
@@ -599,9 +639,7 @@ def read_application(request, transport, attempts, sleep, check, *, request_id=N
     if request_id is not None:
         request = result["request"]
         need(request["application_id"] == aid and ex.fingerprint(request) == request_id)
-        original = request["capture_request"]
-        metadata(original, ORIGIN)
-        same(request, request_for(original))
+        validate_request(request, ORIGIN)
     return report_valid(result, request)
 
 

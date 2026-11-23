@@ -19,19 +19,46 @@ TOKEN = "SELFLEARN_NFL_OUTCOME_INGEST_TOKEN"
 POINTER_FIELDS = {"version", "run_id", "run_attempt", "application_id", "request_id"}
 
 
-def recent_period(schedule, now):
+def recent_finals(schedule, now):
     season = schedule["season"]
     if type(season) is not int or not 2020 <= season <= 2100:
         raise ValueError("invalid_schedule_season")
     oldest = now - timedelta(days=14)
-    weeks = set()
+    games = []
     for game in schedule["games"]:
         week, kickoff = game.get("week"), game.get("kickoff_utc")
         if game.get("status") != "STATUS_FINAL" or type(week) is not int or not 1 <= week <= 18:
             continue
         if oldest <= handoff.clock(handoff.schedule_stamp(kickoff)) < now:
-            weeks.add(week)
-    return season, sorted(weeks)
+            games.append(game)
+    return season, games
+
+
+def recent_period(schedule, now):
+    season, games = recent_finals(schedule, now)
+    return season, sorted({game["week"] for game in games})
+
+
+def recent_game(schedule, now, game_id):
+    if type(game_id) is not str or not application.GAME_SCOPE_ID.fullmatch(game_id):
+        raise ValueError("invalid_outcome_game_id")
+    season, games = recent_finals(schedule, now)
+    matches = [game for game in games if game.get("game_id") == game_id]
+    if len(matches) != 1:
+        raise ValueError("outcome_game_must_match_one_recent_final")
+    scope = {"policy": application.GAME_SCOPE_POLICY, "season": season,
+             "week": matches[0]["week"], "game_id": game_id}
+    return scope, matches[0]
+
+
+def _verify_selected_final(bundle, scope, scheduled):
+    games = [row for row in capture.scoreboard_rows(bundle, scope["week"]) if row["game_id"] == scope["game_id"]]
+    if len(games) != 1 or not games[0]["final"]:
+        raise ValueError("outcome_game_must_match_one_captured_final")
+    captured = games[0]
+    if (captured["home"], captured["away"], capture._instant(captured["kickoff_utc"])) != (
+            scheduled["home"], scheduled["away"], handoff.clock(handoff.schedule_stamp(scheduled["kickoff_utc"]))):
+        raise ValueError("outcome_game_capture_schedule_mismatch")
 
 
 def capture_pointer(plan, run_id, run_attempt):
@@ -87,13 +114,22 @@ def run(mode, *, env=os.environ):
         if mode == "prepare":
             handoff.scope("daily.yml", run_id, attempt)
             schedule = handoff.forecast.capture.read_input(ROOT / "data/schedule_full.json")
-            season, weeks = recent_period(schedule, datetime.now(timezone.utc))
+            now = datetime.now(timezone.utc)
+            selected = env.get("OUTCOME_GAME_ID", "")
+            if selected:
+                scoped, scheduled = recent_game(schedule, now, selected)
+                season, weeks = scoped["season"], [scoped["week"]]
+            else:
+                scoped = None
+                season, weeks = recent_period(schedule, now)
             if not weeks:
                 print('{"status":"no_recent_finals","adoption_approved":false}')
                 return 0
             bundle = capture.capture(season, weeks, fetcher=capture.http_fetcher, include_roster=True)
+            if scoped is not None:
+                _verify_selected_final(bundle, scoped, scheduled)
             manifest = capture.save_capture(bundle, root / "raw")
-            plan = application.plan(manifest, application.ORIGIN)
+            plan = application.plan(manifest, application.ORIGIN, scope=scoped)
             handoff.export._immutable(root / "plan.json", plan, root=root)
             handoff.export._immutable(root / "pointer.json", capture_pointer(plan, run_id, attempt), root=root)
             print('{"status":"prepared","adoption_approved":false}')
