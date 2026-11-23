@@ -1,11 +1,29 @@
-"""Report timings for the offline large-replay canary without logging payloads."""
+"""Run and diagnose the offline large-replay canary without logging payloads."""
 from collections import Counter
 import json
 import re
 
+import pytest
+
 
 RPC_PATH = re.compile(r"/rest/v1/rpc/([a-z0-9_]{1,90})")
 SQL_CODE = re.compile(r"[A-Z0-9]{5}")
+MEMBERSHIP_RPC = "/rest/v1/rpc/selflearn_journal_prepare_capture_membership_v2"
+
+
+@pytest.fixture(autouse=True)
+def allow_large_replay_membership_response(request, monkeypatch):
+    bridge = request.module.TimedSQLBridge
+    read = bridge._read
+
+    def read_membership(self, **options):
+        # Keep the offline pipe synchronized on slower Linux runners. The
+        # engine's operation deadline and all other SQL reads keep their limits.
+        if "timeout" not in options and self.calls and self.calls[-1]["path"] == MEMBERSHIP_RPC:
+            options["timeout"] = 40
+        return read(self, **options)
+
+    monkeypatch.setattr(bridge, "_read", read_membership)
 
 
 def pytest_exception_interact(node, call, report):

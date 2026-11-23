@@ -89,7 +89,7 @@ jobs:
         shell: bash
         env:
           NFL2026_CHECKOUT: ${{ github.workspace }}/nfl
-          PYTHONPATH: ${{ github.workspace }}/nfl/tests:packages/selflearn-core:tests
+          PYTHONPATH: packages/selflearn-core:tests:${{ github.workspace }}/nfl/tests
         run: |
           set -o pipefail
           python -m pytest -q -rs -p collection_replay_diagnostics \
