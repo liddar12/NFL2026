@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-22T23:31:05Z",
+  "generated_utc": "2026-11-23T00:22:46Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "ESPN grading capture 2026-11-22T23:29:04.794430Z (manifest identity 8bd4db95756ef61c83f980ebe8292805266540d15da1423487533f0791a85ca3, 158 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-22T23:21:46Z",
+  "finals_source": "ESPN grading capture 2026-11-23T00:20:04.303656Z (manifest identity a607bab0735e4f020cfea4c5a5bc3a66440d1289c9538f908a4389e86a5c6cbe, 159 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-22T23:29:07Z",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 11,
@@ -10,7 +10,7 @@
     "on_file": 974,
     "locked": 807,
     "unlocked": 167,
-    "resolved": 731,
+    "resolved": 732,
     "unresolved": 71
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 166,
-      "hit_rate": 0.6325,
-      "log_loss": 0.6269,
-      "brier": 0.2194
+      "n": 167,
+      "hit_rate": 0.6287,
+      "log_loss": 0.6289,
+      "brier": 0.2204
     },
     "spread": {
       "n": 137,
@@ -409,10 +409,10 @@
         }
       },
       "moneyline": {
-        "n": 8,
-        "hit_rate": 0.875,
-        "log_loss": 0.4088,
-        "brier": 0.1226
+        "n": 9,
+        "hit_rate": 0.7778,
+        "log_loss": 0.4713,
+        "brier": 0.1519
       },
       "spread": {
         "n": 0,
@@ -855,21 +855,21 @@
       "game_id": "401873074",
       "market": "qb_pass_yds",
       "selection": "J. Herbert 225+ pass yds",
-      "reason": "no_final"
+      "reason": "no_stat_line"
     },
     {
       "week": 11,
       "game_id": "401873074",
       "market": "rb_rush_yds",
       "selection": "B. Hall 60+ rush yds",
-      "reason": "no_final"
+      "reason": "no_stat_line"
     },
     {
       "week": 11,
       "game_id": "401873074",
       "market": "wr_rec_yds",
       "selection": "G. Wilson 60+ rec yds",
-      "reason": "no_final"
+      "reason": "no_stat_line"
     },
     {
       "week": 11,
@@ -13507,6 +13507,21 @@
       "seed_prob": 0.5882,
       "actual": 102.0,
       "hit": true
+    },
+    {
+      "week": 11,
+      "game_id": "401873074",
+      "market": "moneyline",
+      "selection": "LAC ML",
+      "team": "LAC",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6215,
+      "actual": {
+        "home_score": 24,
+        "away_score": 27
+      },
+      "hit": false
     },
     {
       "week": 11,
