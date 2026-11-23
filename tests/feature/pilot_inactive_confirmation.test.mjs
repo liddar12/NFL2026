@@ -38,6 +38,21 @@ def ev(**kw):
     return {k: v for k, v in base.items() if v != "__drop__"}
 `;
 
+test('manual outcome delivery selects continuation only for an explicit game', () => {
+  const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'selflearning-outcomes.yml'), 'utf8');
+  const apply = workflow.match(/      - name: Apply the current capture\n([\s\S]*?)\n      - name: Download only the original application pointer/)[1];
+  assert.match(apply, /OUTCOME_GAME_ID: \$\{\{ inputs.game_id \}\}/);
+  const script = apply.split('        run: |\n')[1];
+  const modes = ['', '401873077'].map(gameId => execFileSync('bash', [
+    '-e', '-c', `timeout() { echo "$@"; }\n${script}`,
+  ], { encoding: 'utf8', env: { ...process.env, OUTCOME_GAME_ID: gameId } }).trim());
+  assert.deepEqual(modes, [
+    '230s python3 -B scripts/run_scheduled_outcomes.py deliver',
+    '425s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped',
+  ]);
+  assert.match(workflow, /- name: Resume the registered application\n(?:(?!      - name:)[\s\S])*?run: timeout 200s python3 -B scripts\/run_scheduled_outcomes.py recover/);
+});
+
 test('the clock: provisional before T-90, withheld (unknown) from T-90 without evidence, closed at kickoff', () => {
   const r = runPy(`${PRELUDE}
 out = {}
