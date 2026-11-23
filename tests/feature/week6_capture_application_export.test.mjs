@@ -306,14 +306,34 @@ with tempfile.TemporaryDirectory() as tmp:
  assert error(lambda:scheduled.recent_game(schedule,now,'G2'))
  assert error(lambda:scheduled._verify_selected_final(bundle,scope,{**game,'home':'LAR'}))
  pointer=scheduled.capture_pointer(p,'101','2')
- server=Server()
- first=send(p,root/'out',server,max_steps=1)
+ server=Server();timeouts=[]
+ def channel(destination,token,**kwargs):
+  timeouts.append((kwargs.get('timeout',50),kwargs.get('scoped',False)))
+  return server
+ malformed={**p,'request':{**p['request'],'game_scope':None}}
+ with mock.patch.object(A,'http_transport',side_effect=channel):
+  assert error(lambda:A.send(malformed,root/'malformed',TOKEN)) and not timeouts
+  first=A.send(p,root/'out',TOKEN,max_steps=1)
+ assert timeouts==[(105,True)]
  assert first['status']=='pending'
  offset=len(server.calls)
- assert error(lambda:A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G2'))
+ timeouts.clear()
+ with mock.patch.object(A,'http_transport',side_effect=channel):
+  assert error(lambda:A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,game_id='G2'))
+ assert timeouts==[(50,False)]
  assert all(method=='GET' for method, _, _ in server.calls[offset:])
- final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G1')
- print(json.dumps({'scope':server.app['seal']['game_scope'],'same_capture':True,
+ timeouts.clear()
+ with mock.patch.object(A,'http_transport',side_effect=channel):
+  final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,game_id='G1')
+ assert timeouts==[(50,False),(105,True)]
+ sealed_scope=server.app['seal']['game_scope']
+ server=Server();timeouts.clear()
+ legacy_pointer=scheduled.capture_pointer(legacy,'101','2')
+ with mock.patch.object(A,'http_transport',side_effect=channel):
+  assert A.send(legacy,root/'legacy',TOKEN,max_steps=1)['status']=='pending'
+  assert A.resume_registered(legacy_pointer['application_id'],legacy_pointer['request_id'],TOKEN)['status']=='terminal_original'
+ assert timeouts==[(50,False),(50,False)]
+ print(json.dumps({'scope':sealed_scope,'same_capture':True,
   'terminal':final['status'],'groups':final['result']['counts']['accepted_groups']}))
 `);
   assert.deepEqual(r.scope, { policy: 'nfl.capture_game_scope_v1', season: 2026, week: 6, game_id: 'G1' });
@@ -332,11 +352,11 @@ with tempfile.TemporaryDirectory() as tmp:
  original_send,original_resume=A.send,A.resume_registered
  retries=[]
  def first(*args, **kwargs):
-  assert kwargs=={'max_run_seconds':210}
+  assert kwargs=={'max_run_seconds':285}
   return original_send(*args,**kwargs,max_steps=1,transport=server)
  def resume(aid,rid,token,**kwargs):
   assert (aid,rid)==(pointer['application_id'],pointer['request_id'])
-  assert kwargs=={'game_id':'G1','max_run_seconds':180}
+  assert kwargs=={'game_id':'G1','max_run_seconds':285}
   retries.append(aid)
   return original_resume(aid,rid,token,**kwargs,transport=server)
  with mock.patch.object(A,'send',side_effect=first), mock.patch.object(A,'resume_registered',side_effect=resume), redirect_stdout(io.StringIO()) as progress:
@@ -577,7 +597,7 @@ with mock.patch.object(A.urllib.request,'build_opener',return_value=Opener()):
   assert.equal(r.rejected, true); assert.equal(r.before, 0); assert.equal(r.allowed, 3); assert.equal(r.credentials_fixed, true);
 });
 
-test('v2 HTTP socket timeout caps at50 or remaining command time and reads bounded chunks', () => {
+test('v2 HTTP caps legacy and scoped socket timeouts at their respective limits or remaining time', () => {
   const r = py(`
 aid=ex.fingerprint('a');route=A.route(aid,'status');now=[0.0];calls=[];reads=[]
 class Response:
@@ -597,9 +617,12 @@ opener=Opener()
 with mock.patch.object(A.urllib.request,'build_opener',return_value=opener)as builder:
  t=A.http_transport(A.ORIGIN,TOKEN,deadline=240,monotonic=lambda:now[0]);status,raw=t('GET',route,None)
  now[0]=238;opener.response=Response(b'x'*70000);status,large=t('GET',route,None)
- # A20.16-second registration fits the new50-second ceiling; no real sleep.
  now[0]=20.16;opener.response=Response();status,again=t('GET',route,None)
+ scoped=A.http_transport(A.ORIGIN,TOKEN,timeout=105,deadline=285,monotonic=lambda:now[0],scoped=True)
+ scoped('GET',route,None)
+ now[0]=284;scoped('GET',route,None)
  invalid=[error(lambda:A.http_transport(A.ORIGIN,TOKEN,timeout=x))for x in(True,0,-1,51,float('nan'),'50')]
+ invalid.extend(error(lambda:A.http_transport(A.ORIGIN,TOKEN,timeout=106,scoped=x))for x in(True,False,'true'))
  invalid.extend(error(lambda:A.http_transport(A.ORIGIN,TOKEN,deadline=x))for x in(True,float('nan'),'secret'))
  now[0]=241
  with mock.patch.object(A.urllib.request,'Request',side_effect=AssertionError('must not attach credentials')):
@@ -610,7 +633,7 @@ with mock.patch.object(A.urllib.request,'build_opener',return_value=opener)as bu
  print(json.dumps({'timeouts':calls,'raw':raw.decode(),'large':len(large),'max_read':max(reads),'invalid':all(invalid),'expired':expired,'late':late,
   'proxy_off':any(isinstance(h,urllib.request.ProxyHandler)and h.proxies=={}for h in handlers),'redirect_off':any(isinstance(h,ex._NoRedirect)for h in handlers)}))
 `);
-  assert.deepEqual(r.timeouts, [50, 2, 50, 2]); assert.equal(r.raw, '{}'); assert.equal(r.large, 70000); assert.ok(r.max_read <= 65536);
+  assert.deepEqual(r.timeouts, [50, 2, 50, 105, 1, 2]); assert.equal(r.raw, '{}'); assert.equal(r.large, 70000); assert.ok(r.max_read <= 65536);
   assert.equal(r.invalid, true); assert.equal(r.expired, true); assert.equal(r.late, true); assert.equal(r.proxy_off, true); assert.equal(r.redirect_off, true);
 });
 

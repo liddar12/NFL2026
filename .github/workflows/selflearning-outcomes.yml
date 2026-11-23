@@ -43,7 +43,7 @@ jobs:
         github.event.workflow_run.head_repository.id == github.event.repository.id &&
         (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'workflow_dispatch'))) }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.game_id != '' && 12 || 10 }}
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.game_id != '' && 15 || 10 }}
     steps:
       - name: Checkout trusted main source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -95,7 +95,7 @@ jobs:
           OUTCOME_GAME_ID: ${{ inputs.game_id }}
         run: |
           if [[ -n "$OUTCOME_GAME_ID" ]]; then
-            timeout 425s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped
+            timeout 600s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped
           else
             timeout 230s python3 -B scripts/run_scheduled_outcomes.py deliver
           fi
@@ -169,7 +169,7 @@ jobs:
         game_id: ${{ fromJSON(needs.select-scoped-outcomes.outputs.game_ids) }}
     name: outcomes game ${{ matrix.game_id }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout trusted main source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -206,7 +206,7 @@ jobs:
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
           SELFLEARN_NFL_OUTCOME_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_OUTCOME_INGEST_TOKEN }}
-        run: timeout 425s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped
+        run: timeout 600s python3 -B scripts/run_scheduled_outcomes.py deliver-scoped
 
   summarize-scoped-outcomes:
     needs: [select-scoped-outcomes, scoped-outcomes]

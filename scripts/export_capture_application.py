@@ -524,7 +524,12 @@ def route_valid(method, path, body):
                 O._hash(options["after"]) if view == "groups" else integer(sequence(options["after"]), 0, MAX_GROUPS - 1)
 
 
-def http_transport(destination, token, *, timeout=50, deadline=None, monotonic=time.monotonic):
+LEGACY_HTTP_TIMEOUT = 50
+SCOPED_HTTP_TIMEOUT = 105
+
+
+def http_transport(destination, token, *, timeout=LEGACY_HTTP_TIMEOUT, deadline=None,
+                   monotonic=time.monotonic, scoped=False):
     """Bound socket waits and check a shared command deadline around I/O.
 
     urllib's timeout bounds socket inactivity, not DNS/continuous-trickle wall
@@ -532,7 +537,8 @@ def http_transport(destination, token, *, timeout=50, deadline=None, monotonic=t
     become success in the expired command and can be recovered next time.
     """
     destination = O._origin(destination)
-    need(type(timeout) in (int, float) and math.isfinite(timeout) and 0 < timeout <= 50 and callable(monotonic)
+    need(type(scoped) is bool and type(timeout) in (int, float) and math.isfinite(timeout)
+         and 0 < timeout <= (SCOPED_HTTP_TIMEOUT if scoped else LEGACY_HTTP_TIMEOUT) and callable(monotonic)
          and (deadline is None or type(deadline) in (int, float) and math.isfinite(deadline)))
     def remaining():
         budget = timeout if deadline is None else min(timeout, deadline - monotonic())
@@ -726,8 +732,10 @@ def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max
                 save("terminal/original.json", report["terminal"])
         return report
     try:
+        scoped = "game_scope" in request
         channel = ex._credential_guarded_transport(transport or http_transport(
-            value["capture_plan"]["destination"], token, deadline=end, monotonic=monotonic), (token,))
+            value["capture_plan"]["destination"], token, deadline=end, monotonic=monotonic,
+            timeout=SCOPED_HTTP_TIMEOUT if scoped else LEGACY_HTTP_TIMEOUT, scoped=scoped), (token,))
         report = fetch()  # Before loading raw bytes, current source clocks or staging.
         if report is None:
             _, bundle = O._validated(value["capture_plan"]);check()
@@ -783,6 +791,11 @@ def resume_registered(application_id, request_id, token, *, transport=None, atte
     report = fetch()
     if report is None:
         raise ApplicationExportError("application_original_registration_missing")
+    if transport is None and "game_scope" in report["request"]:
+        # The exact request digest, scope and original registration are
+        # verified before granting the longer timeout to subsequent calls.
+        channel = ex._credential_guarded_transport(http_transport(
+            ORIGIN, token, deadline=deadline, monotonic=monotonic, timeout=SCOPED_HTTP_TIMEOUT, scoped=True), (token,))
     return advance_application(report, max_steps, channel=channel, attempts=attempts, sleep=sleep,
                                check=check, fetch=fetch, save=lambda *_: None)
 
