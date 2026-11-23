@@ -83,8 +83,18 @@ jobs:
             tests/postgres/test_capture_intake_api.py \
             tests/postgres/test_nfl_outcome_export_api.py \
             tests/postgres/test_nfl_trace_api.py \
-            tests/postgres/test_capture_application_large.py \
             2>&1 | tee "$RUNNER_TEMP/outcome-replay.log"
+      - name: Verify 1088-receipt replay in an isolated process
+        working-directory: selflearning
+        shell: bash
+        env:
+          NFL2026_CHECKOUT: ${{ github.workspace }}/nfl
+          PYTHONPATH: ${{ github.workspace }}/nfl/tests:packages/selflearn-core:tests
+        run: |
+          set -o pipefail
+          python -m pytest -q -rs -p collection_replay_diagnostics \
+            tests/postgres/test_capture_application_large.py \
+            2>&1 | tee "$RUNNER_TEMP/outcome-replay-large.log"
       - name: Retain test evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,5 +103,6 @@ jobs:
           path: |
             ${{ runner.temp }}/collection-handoff.log
             ${{ runner.temp }}/outcome-replay.log
+            ${{ runner.temp }}/outcome-replay-large.log
           if-no-files-found: error
           retention-days: 7
