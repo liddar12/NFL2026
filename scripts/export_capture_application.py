@@ -525,7 +525,7 @@ def route_valid(method, path, body):
 
 
 LEGACY_HTTP_TIMEOUT = 50
-SCOPED_HTTP_TIMEOUT = 105
+SCOPED_HTTP_TIMEOUT = 135
 
 
 def http_transport(destination, token, *, timeout=LEGACY_HTTP_TIMEOUT, deadline=None,
