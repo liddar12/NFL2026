@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-23T02:26:10Z",
+  "generated_utc": "2026-11-23T03:47:23Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "ESPN grading capture 2026-11-23T02:24:09.726727Z (manifest identity 66798aa787915b796dc01ff6b6c140181c0c60c9858acacb4b008a3efdad1589, 161 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-23T00:20:21Z",
+  "finals_source": "ESPN grading capture 2026-11-23T03:44:47.972139Z (manifest identity 62ae811d99ea5abdb5139f5c395389b51741eca3a0927a8c84dbf8158bed7400, 161 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-23T02:24:12Z",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 11,
@@ -10,24 +10,24 @@
     "on_file": 974,
     "locked": 807,
     "unlocked": 167,
-    "resolved": 739,
-    "unresolved": 66
+    "resolved": 741,
+    "unresolved": 64
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 433,
-      "hit_rate": 0.5381,
+      "n": 435,
+      "hit_rate": 0.5379,
       "model": {
-        "log_loss": 0.6705,
-        "brier": 0.2387
+        "log_loss": 0.6707,
+        "brier": 0.2388
       },
       "seed": {
-        "log_loss": 0.6881,
+        "log_loss": 0.6882,
         "brier": 0.2475
       },
       "by_pricing": {
-        "calibrated": 433
+        "calibrated": 435
       }
     },
     "moneyline": {
@@ -45,18 +45,18 @@
   },
   "by_position": {
     "QB": {
-      "n": 141,
-      "hit_rate": 0.5745,
+      "n": 142,
+      "hit_rate": 0.5775,
       "model": {
-        "log_loss": 0.7164,
-        "brier": 0.2604
+        "log_loss": 0.7166,
+        "brier": 0.2605
       },
       "seed": {
-        "log_loss": 0.6624,
-        "brier": 0.2348
+        "log_loss": 0.6617,
+        "brier": 0.2344
       },
       "by_pricing": {
-        "calibrated": 141
+        "calibrated": 142
       }
     },
     "RB": {
@@ -75,18 +75,18 @@
       }
     },
     "WR": {
-      "n": 155,
-      "hit_rate": 0.5097,
+      "n": 156,
+      "hit_rate": 0.5064,
       "model": {
-        "log_loss": 0.6394,
+        "log_loss": 0.6395,
         "brier": 0.2238
       },
       "seed": {
-        "log_loss": 0.7097,
-        "brier": 0.2582
+        "log_loss": 0.7106,
+        "brier": 0.2586
       },
       "by_pricing": {
-        "calibrated": 155
+        "calibrated": 156
       }
     }
   },
@@ -394,18 +394,18 @@
     {
       "week": 11,
       "props": {
-        "n": 26,
-        "hit_rate": 0.5769,
+        "n": 28,
+        "hit_rate": 0.5714,
         "model": {
-          "log_loss": 0.7009,
-          "brier": 0.2538
+          "log_loss": 0.7005,
+          "brier": 0.2536
         },
         "seed": {
-          "log_loss": 0.7025,
-          "brier": 0.2546
+          "log_loss": 0.7026,
+          "brier": 0.2547
         },
         "by_pricing": {
-          "calibrated": 26
+          "calibrated": 28
         }
       },
       "moneyline": {
@@ -827,20 +827,6 @@
       "game_id": "401873067",
       "market": "rb_rush_yds",
       "selection": "K. Walker III 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 11,
-      "game_id": "401873069",
-      "market": "qb_pass_yds",
-      "selection": "T. Lawrence 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 11,
-      "game_id": "401873069",
-      "market": "wr_rec_yds",
-      "selection": "B. Thomas Jr. 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -13236,6 +13222,44 @@
         "home_score": 23,
         "away_score": 18
       },
+      "hit": false
+    },
+    {
+      "week": 11,
+      "game_id": "401873069",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "T. Lawrence 225+ pass yds",
+      "player": "Trevor Lawrence",
+      "team": "JAX",
+      "line": 224.5,
+      "mu": 215.42,
+      "sd": 76.66,
+      "z": -0.1184,
+      "p_team": 0.6761,
+      "pricing": "calibrated",
+      "model_prob": 0.4754,
+      "seed_prob": 0.5704,
+      "actual": 301.0,
+      "hit": true
+    },
+    {
+      "week": 11,
+      "game_id": "401873069",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "B. Thomas Jr. 60+ rec yds",
+      "player": "Brian Thomas Jr.",
+      "team": "JAX",
+      "line": 59.5,
+      "mu": 60.66,
+      "sd": 41.58,
+      "z": 0.028,
+      "p_team": 0.6761,
+      "pricing": "calibrated",
+      "model_prob": 0.4767,
+      "seed_prob": 0.5704,
+      "actual": 18.0,
       "hit": false
     },
     {
