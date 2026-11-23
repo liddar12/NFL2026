@@ -285,6 +285,9 @@ with tempfile.TemporaryDirectory() as tmp:
  now=C._instant('2026-09-05T00:00:00Z')
  scope,game=scheduled.recent_game(schedule,now,'G1')
  scheduled._verify_selected_final(bundle,scope,game)
+ missing={**game,'game_id':'G2'}
+ assert scheduled.automatic_selection([game,missing],bundle)==(['G1'],1)
+ assert error(lambda:scheduled.automatic_selection([game,game],bundle))
  p=A.plan(path,A.ORIGIN,scope=scope)
  q=A.plan(path,A.ORIGIN,scope={**scope,'game_id':'G2'})
  assert p['capture_plan']==q['capture_plan']==legacy['capture_plan']
@@ -306,7 +309,10 @@ with tempfile.TemporaryDirectory() as tmp:
  server=Server()
  first=send(p,root/'out',server,max_steps=1)
  assert first['status']=='pending'
- final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server)
+ offset=len(server.calls)
+ assert error(lambda:A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G2'))
+ assert all(method=='GET' for method, _, _ in server.calls[offset:])
+ final=A.resume_registered(pointer['application_id'],pointer['request_id'],TOKEN,transport=server,game_id='G1')
  print(json.dumps({'scope':server.app['seal']['game_scope'],'same_capture':True,
   'terminal':final['status'],'groups':final['result']['counts']['accepted_groups']}))
 `);

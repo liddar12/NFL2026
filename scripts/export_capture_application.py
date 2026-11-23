@@ -759,10 +759,11 @@ def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max
 
 
 def resume_registered(application_id, request_id, token, *, transport=None, attempts=3, max_steps=16,
-                      max_run_seconds=180, sleep=time.sleep, monotonic=time.monotonic):
+                      max_run_seconds=180, sleep=time.sleep, monotonic=time.monotonic, game_id=None):
     """Resume only the original server registration using its immutable IDs."""
     O._hash(application_id)
     O._hash(request_id)
+    need(game_id is None or type(game_id) is str and GAME_SCOPE_ID.fullmatch(game_id))
     need(type(token) is str and 32 <= len(token) <= 8192 and all(0x21 <= ord(c) <= 0x7e for c in token))
     integer(attempts, 1, 5)
     integer(max_steps, 1, MAX_GROUPS)
@@ -774,8 +775,11 @@ def resume_registered(application_id, request_id, token, *, transport=None, atte
         if monotonic() >= deadline:
             raise ApplicationBudgetExceeded("application_pending_budget")
     def fetch():
-        return read_application({"application_id": application_id}, channel, attempts, sleep, check,
-                                request_id=request_id)
+        report = read_application({"application_id": application_id}, channel, attempts, sleep, check,
+                                  request_id=request_id)
+        if report is not None and game_id is not None:
+            need(report["request"].get("game_scope", {}).get("game_id") == game_id)
+        return report
     report = fetch()
     if report is None:
         raise ApplicationExportError("application_original_registration_missing")
