@@ -27,6 +27,11 @@ on:
         description: Run automatic exact recovery for one game without capturing fresh evidence
         required: false
         type: string
+      dispatch_scoped_outcomes:
+        description: Run the normal scoped outcomes dispatcher without starting the daily pipeline
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -40,7 +45,7 @@ jobs:
   outcomes:
     if: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' &&
       github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'workflow_dispatch' && inputs.probe_recovery_game_id == '') ||
+      ((github.event_name == 'workflow_dispatch' && inputs.probe_recovery_game_id == '' && inputs.dispatch_scoped_outcomes != true) ||
        (vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES != 'true' &&
         github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.head_branch == 'main' &&
@@ -126,7 +131,8 @@ jobs:
 
   select-scoped-outcomes:
     if: ${{ github.repository == 'liddar12/NFL2026' && github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'workflow_dispatch' && inputs.probe_recovery_game_id != '') ||
+      ((github.event_name == 'workflow_dispatch' &&
+        (inputs.probe_recovery_game_id != '' || inputs.dispatch_scoped_outcomes == true)) ||
        (vars.NFL_SELFLEARN_OUTCOME_MODE == 'record' &&
         vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES == 'true' &&
         github.event_name == 'workflow_run' &&
@@ -151,12 +157,13 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Validate the isolated automatic recovery probe
+      - name: Validate automatic outcomes dispatch inputs
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           NFL_SELFLEARN_OUTCOME_MODE: ${{ vars.NFL_SELFLEARN_OUTCOME_MODE }}
           NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES: ${{ vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES }}
           OUTCOME_PROBE_GAME_ID: ${{ inputs.probe_recovery_game_id }}
+          OUTCOME_SCOPED_DISPATCH: ${{ inputs.dispatch_scoped_outcomes }}
           OUTCOME_GAME_ID: ${{ inputs.game_id }}
           OUTCOME_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           OUTCOME_SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
@@ -164,9 +171,13 @@ jobs:
         run: |
           [[ "$NFL_SELFLEARN_OUTCOME_MODE" == record &&
              "$NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES" == true &&
-             "$OUTCOME_PROBE_GAME_ID" =~ ^[A-Za-z0-9_-]{1,200}$ &&
              -z "$OUTCOME_GAME_ID" && -z "$OUTCOME_SOURCE_RUN_ID" &&
-             -z "$OUTCOME_SOURCE_RUN_ATTEMPT" && -z "$OUTCOME_SOURCE_GAME_ID" ]]
+             -z "$OUTCOME_SOURCE_RUN_ATTEMPT" && -z "$OUTCOME_SOURCE_GAME_ID" ]] || exit 1
+          if [[ "$OUTCOME_SCOPED_DISPATCH" == true ]]; then
+            [[ -z "$OUTCOME_PROBE_GAME_ID" ]]
+          else
+            [[ "$OUTCOME_SCOPED_DISPATCH" == false && "$OUTCOME_PROBE_GAME_ID" =~ ^[A-Za-z0-9_-]{1,200}$ ]]
+          fi
 
       - name: Verify saved original applications before capturing new games
         id: select

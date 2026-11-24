@@ -316,6 +316,22 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   assert.match(outcomes, /include: \$\{\{ fromJSON\(needs\.select-scoped-outcomes\.outputs\.entries\) \}\}/);
   assert.match(outcomes, /if: \$\{\{ steps\.select\.outputs\.fresh_count != '0' \}\}/);
   assert.match(outcomes, /OUTCOME_GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+  const dispatch = outcomes.split('      - name: Validate automatic outcomes dispatch inputs')[1]
+    .split('      - name: Verify saved original applications')[0].split('        run: |\n')[1];
+  function dispatchStatus(full, probe, manualGame) {
+    try {
+      execFileSync('bash', ['-e', '-c', dispatch], { stdio: 'ignore', env: {
+        ...process.env, NFL_SELFLEARN_OUTCOME_MODE: 'record', NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES: 'true',
+        OUTCOME_SCOPED_DISPATCH: full, OUTCOME_PROBE_GAME_ID: probe, OUTCOME_GAME_ID: manualGame,
+        OUTCOME_SOURCE_RUN_ID: '', OUTCOME_SOURCE_RUN_ATTEMPT: '', OUTCOME_SOURCE_GAME_ID: '',
+      } });
+      return 0;
+    } catch (error) {
+      return error.status;
+    }
+  }
+  assert.deepEqual([dispatchStatus('true', '', ''), dispatchStatus('false', 'G1', ''),
+    dispatchStatus('true', 'G1', ''), dispatchStatus('true', '', 'G1')], [0, 0, 1, 1]);
   const resume = outcomes.split('      - name: Continue the verified original application without a new capture')[1]
     .split('  summarize-scoped-outcomes:')[0];
   assert.match(resume, /if: \$\{\{ matrix\.mode == 'resume' \}\}/);

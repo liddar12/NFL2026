@@ -61,8 +61,8 @@ def _artifact_header(row, run, match):
 
 
 def pointer_candidates(get_json, game_ids, since, current_run_id):
-    """Return newest-first pointer metadata from completed automatic main runs."""
-    query = {"branch": "main", "event": "workflow_run", "status": "completed",
+    """Return newest-first pointer metadata from completed main dispatcher runs."""
+    query = {"branch": "main", "status": "completed",
              "created": ">=" + since.date().isoformat(), "per_page": RUNS_PER_PAGE}
     runs = []
     for number in range(1, MAX_HISTORY_RUNS // RUNS_PER_PAGE + 1):
@@ -78,7 +78,7 @@ def pointer_candidates(get_json, game_ids, since, current_run_id):
     output = {game_id: [] for game_id in game_ids}
     for run in sorted(runs, key=lambda row: row["id"], reverse=True):
         _need(run["path"] == ".github/workflows/" + WORKFLOW and run["status"] == "completed"
-              and run["event"] == "workflow_run" and run["head_branch"] == "main"
+              and run["event"] in {"workflow_run", "workflow_dispatch"} and run["head_branch"] == "main"
               and run["repository"]["id"] == run["head_repository"]["id"] == REPOSITORY_ID
               and str(run["id"]) != current_run_id)
         listing = get_json(f"/runs/{run['id']}/artifacts?per_page=100")

@@ -779,11 +779,13 @@ raw=archive.getvalue();digest='sha256:'+hashlib.sha256(raw).hexdigest()
 row={'id':7,'name':f'selflearning-outcome-{rid}-2-game-{game}','size_in_bytes':len(raw),'digest':digest,'workflow_run':source,'expired':False}
 def api(route):
  if '/workflows/' in route:
-  assert 'event=workflow_run' in route and 'branch=main' in route
+  assert 'status=completed' in route and 'branch=main' in route
   return {'total_count':1,'workflow_runs':[run]}
  assert route==f'/runs/{rid}/artifacts?per_page=100'
  return {'total_count':2,'artifacts':[row,{**row,'id':8,'name':f'selflearning-outcome-{rid}-1-game-{game}'}]}
 def find():return H.pointer_candidates(api,[game],datetime(2026,9,3,tzinfo=timezone.utc),'124')
+assert [x[2]for x in find()[game]]==['2','1']
+run['event']='workflow_dispatch'
 assert [x[2]for x in find()[game]]==['2','1']
 assert H._read_pointer_archive(raw,digest,len(raw))==pointer
 assert error(lambda:H._read_pointer_archive(raw+b'x',digest,len(raw)+1))
