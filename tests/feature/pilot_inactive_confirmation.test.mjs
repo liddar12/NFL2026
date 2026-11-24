@@ -306,13 +306,37 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
   assert.match(outcomes, /path: \$\{\{ runner.temp \}\}\/selflearning-outcomes\/pointer.json\n/);
   assert.ok(outcomes.indexOf('Retain the application pointer before delivery') < outcomes.indexOf('Apply the current capture'));
   assert.deepEqual([...outcomes.matchAll(/secrets\.(SELFLEARN_NFL_\w+)/g)].map(match => match[1]),
-    Array(3).fill('SELFLEARN_NFL_OUTCOME_INGEST_TOKEN'));
+    Array(5).fill('SELFLEARN_NFL_OUTCOME_INGEST_TOKEN'));
   assert.doesNotMatch(outcomes.split('      - name: Retain the application pointer')[0], /secrets\./);
   assert.match(outcomes, /vars.NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES == 'true'/);
   assert.match(outcomes, /max-parallel: 1/);
   assert.match(outcomes, /timeout 230s python3 -B scripts\/run_scheduled_outcomes.py deliver\n/);
   assert.equal([...outcomes.matchAll(/timeout 1170s python3 -B scripts\/run_scheduled_outcomes.py deliver-scoped/g)].length, 2);
   assert.match(outcomes, /needs\.select-scoped-outcomes\.outputs\.capture_artifact/);
+  assert.match(outcomes, /include: \$\{\{ fromJSON\(needs\.select-scoped-outcomes\.outputs\.entries\) \}\}/);
+  assert.match(outcomes, /if: \$\{\{ steps\.select\.outputs\.fresh_count != '0' \}\}/);
+  assert.match(outcomes, /OUTCOME_GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+  const dispatch = outcomes.split('      - name: Validate automatic outcomes dispatch inputs')[1]
+    .split('      - name: Verify saved original applications')[0].split('        run: |\n')[1];
+  function dispatchStatus(full, probe, manualGame) {
+    try {
+      execFileSync('bash', ['-e', '-c', dispatch], { stdio: 'ignore', env: {
+        ...process.env, NFL_SELFLEARN_OUTCOME_MODE: 'record', NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES: 'true',
+        OUTCOME_SCOPED_DISPATCH: full, OUTCOME_PROBE_GAME_ID: probe, OUTCOME_GAME_ID: manualGame,
+        OUTCOME_SOURCE_RUN_ID: '', OUTCOME_SOURCE_RUN_ATTEMPT: '', OUTCOME_SOURCE_GAME_ID: '',
+      } });
+      return 0;
+    } catch (error) {
+      return error.status;
+    }
+  }
+  assert.deepEqual([dispatchStatus('true', '', ''), dispatchStatus('false', 'G1', ''),
+    dispatchStatus('true', 'G1', ''), dispatchStatus('true', '', 'G1')], [0, 0, 1, 1]);
+  const resume = outcomes.split('      - name: Continue the verified original application without a new capture')[1]
+    .split('  summarize-scoped-outcomes:')[0];
+  assert.match(resume, /if: \$\{\{ matrix\.mode == 'resume' \}\}/);
+  assert.match(resume, /timeout 1170s python3 -B scripts\/run_scheduled_outcomes.py recover-auto/);
+  assert.doesNotMatch(resume, /capture_artifact|run_scheduled_outcomes\.py prepare|OUTCOME_GITHUB_TOKEN|ODDS/);
   assert.match(outcomes, /selflearning-outcome-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-game-/);
   assert.ok(outcomes.indexOf("Validate original run locator") < outcomes.indexOf("Capture raw recent final evidence"));
   const observerPath = join('.github', 'workflows', 'public-parlay-observation.yml');
@@ -332,10 +356,10 @@ test('only the scoped collection workflow steps may reach the disabled pilot too
     'run_parlay_feedback.py', 'learning_history_guard.py',
     'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
     'export_outcome_capture.py', 'export_capture_application.py',
-    'run_collection_handoff.py', 'run_scheduled_collection.py', 'run_scheduled_outcomes.py',
+    'run_collection_handoff.py', 'run_scheduled_collection.py', 'run_scheduled_outcomes.py', 'outcome_recovery_history.py',
     'observe_parlay_offers.py', 'grade_observed_parlays.py', 'game_parlay_shadow.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection|run_scheduled_outcomes|observe_parlay_offers|grade_observed_parlays/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application|run_collection_handoff|run_scheduled_collection|run_scheduled_outcomes|outcome_recovery_history|observe_parlay_offers|grade_observed_parlays/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);

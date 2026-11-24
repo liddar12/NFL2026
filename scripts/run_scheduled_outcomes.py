@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Capture recent NFL outcomes and recover registered applications by exact ID."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
 import sys
+import time
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +16,7 @@ if str(ROOT) not in sys.path:
 
 from scripts import capture_outcome_evidence as capture, export_capture_application as application
 from scripts import run_collection_handoff as handoff
+from scripts import outcome_recovery_history as history
 
 TOKEN = "SELFLEARN_NFL_OUTCOME_INGEST_TOKEN"
 POINTER_FIELDS = {"version", "run_id", "run_attempt", "application_id", "request_id"}
@@ -22,6 +25,9 @@ SHARED_CAPTURE_DIR = "selflearning-outcome-capture"
 CONTINUABLE_REASONS = {"application_pending_budget", "application_pending_step_limit"}
 SCOPED_DELIVERY_WINDOW_SECONDS = 285
 MAX_SCOPED_CONTINUATIONS = 3
+RECOVERY_PRIORITY = {"stopped": 0, "active": 1, "processed": 2}
+MAX_RECOVERY_CANDIDATES_PER_GAME = 24
+RECOVERY_SELECTION_SECONDS = 300
 
 
 def recent_finals(schedule, now):
@@ -69,26 +75,33 @@ def _verify_selected_final(bundle, scope, scheduled):
         raise ValueError("outcome_game_capture_schedule_mismatch")
 
 
-def automatic_selection(games, bundle):
-    """Return FINAL IDs corroborated by one immutable schedule and provider capture."""
+def _recent_first(games):
     game_ids = [game.get("game_id") for game in games]
     if (len(game_ids) > MAX_RECENT_GAMES
             or any(type(game_id) is not str or not application.GAME_SCOPE_ID.fullmatch(game_id) for game_id in game_ids)
             or len(set(game_ids)) != len(game_ids)):
         raise ValueError("invalid_outcome_schedule_game_ids")
+    return sorted(games, key=lambda game: handoff.clock(handoff.schedule_stamp(game["kickoff_utc"])), reverse=True)
+
+
+def automatic_selection(games, bundle):
+    """Return FINAL IDs corroborated by one immutable schedule and provider capture."""
     observed = {row["game_id"]: row for row in capture.scoreboard_rows(bundle)}
-    recent_first = sorted(games, key=lambda game: handoff.clock(handoff.schedule_stamp(game["kickoff_utc"])), reverse=True)
-    ids = [game["game_id"] for game in recent_first
+    ids = [game["game_id"] for game in _recent_first(games)
            if game["game_id"] in observed and _same_final(observed[game["game_id"]], game)]
     return ids, len(games) - len(ids)
 
 
-def _selection_outputs(env, ids, unverified):
+def _selection_outputs(env, entries, unverified, held):
+    recover = sum(row["mode"] == "resume" for row in entries)
+    fresh = len(entries) - recover
     with open(env["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
-        stream.write("game_ids=" + json.dumps(ids, separators=(",", ":")) + "\n")
-        stream.write(f"selected_count={len(ids)}\nunverified_count={unverified}\n")
-    print(json.dumps({"status": "scoped_games_selected", "selected_games": len(ids),
-                      "unverified_games": unverified, "adoption_approved": False}))
+        stream.write("entries=" + json.dumps(entries, separators=(",", ":")) + "\n")
+        stream.write(f"selected_count={len(entries)}\nfresh_count={fresh}\nrecovery_count={recover}\n"
+                     f"unverified_count={unverified}\nrecovery_held_count={held}\n")
+    print(json.dumps({"status": "scoped_games_selected", "selected_games": len(entries), "fresh_games": fresh,
+                      "recovery_games": recover, "unverified_games": unverified,
+                      "recovery_held_games": held, "adoption_approved": False}))
 
 
 def _shared_manifest(temp):
@@ -106,13 +119,93 @@ def capture_pointer(plan, run_id, run_attempt):
 
 
 def read_pointer(path, run_id, run_attempt):
+    return pointer_value(handoff.queue.read(path), run_id, run_attempt)
+
+
+def pointer_value(value, run_id, run_attempt):
     handoff.scope("daily.yml", run_id, run_attempt)
-    value = handoff.queue.read(path)
     handoff.fields(value, POINTER_FIELDS, versioned=True)
     handoff.need((value["run_id"], value["run_attempt"]) == (run_id, run_attempt))
     handoff.export._hash(value["application_id"])
     handoff.export._hash(value["request_id"])
     return value
+
+
+def recoverable_application(scope, candidates, download, progress):
+    """Choose a processed terminal, or the registered application furthest along."""
+    best, best_rank, seen = None, None, set()
+    game_id = scope["game_id"]
+    for index, artifact in enumerate(candidates):
+        if index >= MAX_RECOVERY_CANDIDATES_PER_GAME:
+            raise history.HistoryError("outcome_recovery_candidate_limit")
+        _, run_id, attempt, _, _ = artifact
+        pointer = pointer_value(download(artifact), run_id, attempt)
+        application_id, request_id = pointer["application_id"], pointer["request_id"]
+        if (application_id, request_id) in seen:
+            continue
+        seen.add((application_id, request_id))
+        summary = progress(application_id, request_id, scope)
+        if summary is None:
+            continue
+        state, batches = summary
+        rank = (RECOVERY_PRIORITY[state], batches)
+        if best_rank is None or rank > best_rank:
+            best = {"mode": "resume", "game_id": game_id, **pointer}
+            best_rank = rank
+        if state == "processed":
+            break
+    return best
+
+
+def select_scoped(schedule, now, env, temp):
+    season, games = recent_finals(schedule, now)
+    probe = env.get("OUTCOME_PROBE_GAME_ID", "")
+    if probe:
+        _, game = recent_game(schedule, now, probe)
+        games = [game]
+    games = _recent_first(games)
+    if not games:
+        _selection_outputs(env, [], 0, 0)
+        return 0
+    deadline = time.monotonic() + RECOVERY_SELECTION_SECONDS
+    github = history.GitHubHistory(env["OUTCOME_GITHUB_TOKEN"], deadline=deadline)
+    earliest_kickoff = min(handoff.clock(handoff.schedule_stamp(game["kickoff_utc"])) for game in games)
+    candidates = history.pointer_candidates(github.json, [game["game_id"] for game in games],
+                                             earliest_kickoff, env["GITHUB_RUN_ID"])
+
+    def inspect(game):
+        game_id = game["game_id"]
+        scope = {"policy": application.GAME_SCOPE_POLICY, "season": season,
+                 "week": game["week"], "game_id": game_id}
+        try:
+            return recoverable_application(scope, candidates[game_id], github.download,
+                lambda aid, rid, scope: application.registered_progress(
+                    aid, rid, scope, env[TOKEN], deadline=deadline)), False
+        except Exception:
+            print(json.dumps({"status": "outcome_recovery_authority_held", "game_id": game_id,
+                              "adoption_approved": False}))
+            return None, True
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        decisions = list(pool.map(inspect, games))
+    recovery, fresh, held = [], [], 0
+    for game, (entry, blocked) in zip(games, decisions):
+        if entry is not None:
+            recovery.append(entry)
+        elif blocked or probe:
+            held += 1
+        else:
+            fresh.append(game)
+    unverified = 0
+    if fresh:
+        weeks = sorted({game["week"] for game in fresh})
+        bundle = capture.capture(season, weeks, fetcher=capture.http_fetcher, include_roster=True)
+        ids, unverified = automatic_selection(fresh, bundle)
+        if ids:
+            capture.save_capture(bundle, temp / SHARED_CAPTURE_DIR)
+        recovery.extend({"mode": "fresh", "game_id": game_id} for game_id in ids)
+    _selection_outputs(env, recovery, unverified, held)
+    return 0
 
 
 def report(result):
@@ -150,14 +243,20 @@ def deliver_scoped(plan, pointer, out_dir, token):
     application.need(registration["status"] == "registered" and registration["learning_accepted"] is False
                      and registration["application_id"] == pointer["application_id"]
                      and registration["request_id"] == pointer["request_id"])
-    for continuation in range(1, MAX_SCOPED_CONTINUATIONS + 1):
+    return continue_registered(pointer, game_id, token, result, MAX_SCOPED_CONTINUATIONS)
+
+
+def continue_registered(pointer, game_id, token, result, windows, *, expected_scope=None):
+    """Use only the original IDs, including when called by a later workflow."""
+    for continuation in range(1, windows + 1):
         print(json.dumps({"status": "resuming_registered_application", "reason": result["reason"],
                           "application_id": pointer["application_id"], "continuation": continuation,
                           "adoption_approved": False}))
         try:
+            scope = {"expected_scope": expected_scope} if expected_scope is not None else {}
             result = application.resume_registered(
                 pointer["application_id"], pointer["request_id"], token,
-                game_id=game_id, max_run_seconds=SCOPED_DELIVERY_WINDOW_SECONDS)
+                game_id=game_id, max_run_seconds=SCOPED_DELIVERY_WINDOW_SECONDS, **scope)
         except application.ApplicationExportError as error:
             result = {"status": "pending", "reason": str(error)}
         if result["status"] != "pending" or result.get("reason") not in CONTINUABLE_REASONS:
@@ -174,6 +273,19 @@ def run(mode, *, env=os.environ):
         handoff.forecast.capture.disabled_config()
         temp = Path(env["RUNNER_TEMP"]).resolve(strict=True)
         root = temp / "selflearning-outcomes"
+        if mode == "recover-auto":
+            handoff.need(env.get("NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES") == "true")
+            selected = env["OUTCOME_GAME_ID"]
+            schedule = handoff.forecast.capture.read_input(ROOT / "data/schedule_full.json")
+            scope, _ = recent_game(schedule, datetime.now(timezone.utc), selected)
+            pointer = pointer_value({
+                "version": 1, "run_id": env["OUTCOME_SOURCE_RUN_ID"],
+                "run_attempt": env["OUTCOME_SOURCE_RUN_ATTEMPT"],
+                "application_id": env["OUTCOME_APPLICATION_ID"], "request_id": env["OUTCOME_REQUEST_ID"],
+            }, env["OUTCOME_SOURCE_RUN_ID"], env["OUTCOME_SOURCE_RUN_ATTEMPT"])
+            return report(continue_registered(pointer, selected, env[TOKEN],
+                {"status": "pending", "reason": "saved_registered_application"},
+                1 + MAX_SCOPED_CONTINUATIONS, expected_scope=scope))
         if mode == "recover":
             pointer = read_pointer(temp / "selflearning-outcome-pointer" / "pointer.json",
                                    env["OUTCOME_SOURCE_RUN_ID"], env["OUTCOME_SOURCE_RUN_ATTEMPT"])
@@ -192,17 +304,7 @@ def run(mode, *, env=os.environ):
             automatic = env.get("NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES") == "true"
             if mode == "select":
                 handoff.need(automatic)
-                season, games = recent_finals(schedule, now)
-                if not games:
-                    _selection_outputs(env, [], 0)
-                    return 0
-                weeks = sorted({game["week"] for game in games})
-                bundle = capture.capture(season, weeks, fetcher=capture.http_fetcher, include_roster=True)
-                ids, unverified = automatic_selection(games, bundle)
-                if ids:
-                    capture.save_capture(bundle, temp / SHARED_CAPTURE_DIR)
-                _selection_outputs(env, ids, unverified)
-                return 0
+                return select_scoped(schedule, now, env, temp)
 
             selected = env.get("OUTCOME_GAME_ID", "")
             if env.get("OUTCOME_SHARED_CAPTURE") == "true":
@@ -249,7 +351,7 @@ def run(mode, *, env=os.environ):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("select", "prepare", "deliver", "deliver-scoped", "recover"))
+    parser.add_argument("mode", choices=("select", "prepare", "deliver", "deliver-scoped", "recover", "recover-auto"))
     return run(parser.parse_args().mode)
 
 

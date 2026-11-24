@@ -649,6 +649,86 @@ def read_application(request, transport, attempts, sleep, check, *, request_id=N
     return report_valid(result, request)
 
 
+def registered_progress(application_id, request_id, expected_scope, token, *, transport=None, deadline=None):
+    """Read authenticated progress for scheduling. Delivery still verifies the full report."""
+    O._hash(application_id)
+    O._hash(request_id)
+    need(type(token) is str and 32 <= len(token) <= 8192 and all(0x21 <= ord(c) <= 0x7e for c in token))
+    stop = time.monotonic() + 25
+    deadline = min(stop, deadline) if deadline is not None else stop
+    channel = ex._credential_guarded_transport(transport or http_transport(
+        ORIGIN, token, timeout=10, deadline=deadline), (token,))
+
+    def check():
+        if time.monotonic() >= deadline:
+            raise ApplicationBudgetExceeded("application_pending_budget")
+
+    def page(view, original=None):
+        fence = original["ledger_watermark"] if original is not None else None
+        response = exchange(channel, "GET", route(application_id, view, fence=fence), None, 2, time.sleep,
+                            check, missing=view == "registration")
+        if response is None:
+            return None
+        keys(response, PAGE_KEYS)
+        need(type(response["version"]) is int and response["version"] == 2
+             and response["kind"] == "nfl.capture_application_page.v2" and response["found"] is True
+             and response["application_id"] == application_id and response["view"] == view
+             and type(response["records"]) is list and len(response["records"]) == 1
+             and type(response["total_records"]) is int and response["total_records"] == 1
+             and response["next_after"] is None)
+        for key in ("registration_id", "seal_id"):
+            O._hash(response[key])
+        sequence(response["ledger_watermark"])
+        if original is not None:
+            need(all(response[key] == original[key] for key in ("registration_id", "seal_id", "ledger_watermark")))
+        return response
+
+    first = page("registration")
+    if first is None:
+        return None
+    header = first["records"][0]
+    keys(header, {"request", "seal_header", "registration"})
+    request, seal, registration = (header[key] for key in ("request", "seal_header", "registration"))
+    validate_request(request, ORIGIN)
+    same(request.get("game_scope"), expected_scope)
+    need(request["application_id"] == application_id and ex.fingerprint(request) == request_id)
+    keys(seal, (SEAL_KEYS | {"game_scope"}) - {"groups", "batches"})
+    same(seal["game_scope"], expected_scope)
+    result_base(registration, REG_KEYS, "nfl.capture_application_registration.v2", "sealed_application_only")
+    identities(registration, seal)
+    hashed(registration, "registration_id")
+    need(registration["status"] == "registered" and registration["learning_accepted"] is False
+         and registration["request_id"] == request_id and registration["application_id"] == application_id
+         and registration["registration_id"] == first["registration_id"]
+         and registration["seal_id"] == first["seal_id"]
+         and sequence(registration["application_seq"]) <= sequence(first["ledger_watermark"]))
+    status = page("status", first)["records"][0]
+    keys(status, STATUS_KEYS)
+    need(type(status["version"]) is int and status["version"] == 2 and status["kind"] == "nfl.capture_application_status.v2"
+         and status["scope"] == "pinned_application_progress" and status["durable_ack"] is False
+         and status["source_authentication"] == "not_performed" and status["status"] in {"active", "terminal"})
+    for key in ("application_id", "membership_id", "registration_id", "seal_id"):
+        need(status[key] == registration[key])
+    need(status["ledger_watermark"] == first["ledger_watermark"]
+         and integer(status["batch_count"], 0, MAX_GROUPS) == integer(registration["batch_count"], 0, MAX_GROUPS))
+    batches = integer(status["committed_batches"], 0, status["batch_count"])
+    if status["status"] == "active":
+        need(status["terminal_result_id"] is None and status["execution_ready"] is True and batches < status["batch_count"])
+        O._hash(status["next_step_id"])
+        return "active", batches
+    need(status["next_step_id"] is None and status["execution_ready"] is False)
+    terminal = page("terminal", first)["records"][0]
+    result_base(terminal, TERM_KEYS, "nfl.capture_application_result.v2", "application_group_results")
+    identities(terminal, seal)
+    hashed(terminal, "terminal_result_id")
+    need(terminal["terminal_result_id"] == status["terminal_result_id"]
+         and terminal["status"] in NORMAL | {"incomplete_membership_changed", "incomplete_integrity_or_capacity"}
+         and type(terminal["processing_complete"]) is bool
+         and terminal["processing_complete"] == (terminal["status"] in NORMAL)
+         and (not terminal["processing_complete"] or batches == status["batch_count"]))
+    return ("processed" if terminal["processing_complete"] else "stopped"), batches
+
+
 def terminal_result(report):
     request = report["request"]
     terminal = report["terminal"]
@@ -767,7 +847,8 @@ def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max
 
 
 def resume_registered(application_id, request_id, token, *, transport=None, attempts=3, max_steps=16,
-                      max_run_seconds=180, sleep=time.sleep, monotonic=time.monotonic, game_id=None):
+                      max_run_seconds=180, sleep=time.sleep, monotonic=time.monotonic, game_id=None,
+                      expected_scope=None):
     """Resume only the original server registration using its immutable IDs."""
     O._hash(application_id)
     O._hash(request_id)
@@ -787,6 +868,8 @@ def resume_registered(application_id, request_id, token, *, transport=None, atte
                                   request_id=request_id)
         if report is not None and game_id is not None:
             need(report["request"].get("game_scope", {}).get("game_id") == game_id)
+        if report is not None and expected_scope is not None:
+            same(report["request"].get("game_scope"), expected_scope)
         return report
     report = fetch()
     if report is None:
