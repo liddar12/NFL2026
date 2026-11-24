@@ -22,7 +22,12 @@ TOKEN = "SELFLEARN_NFL_OUTCOME_INGEST_TOKEN"
 POINTER_FIELDS = {"version", "run_id", "run_attempt", "application_id", "request_id"}
 MAX_RECENT_GAMES = 48  # Three regular-season slates at most can intersect a 14-day window.
 SHARED_CAPTURE_DIR = "selflearning-outcome-capture"
-CONTINUABLE_REASONS = {"application_pending_budget", "application_pending_step_limit"}
+CONTINUABLE_REASONS = {
+    "application_pending_budget",
+    "application_pending_step_limit",
+    "application_http_exhausted",
+    "application_transport_exhausted",
+}
 SCOPED_DELIVERY_WINDOW_SECONDS = 285
 MAX_SCOPED_CONTINUATIONS = 3
 RECOVERY_PRIORITY = {"stopped": 0, "active": 1, "processed": 2}
@@ -247,7 +252,7 @@ def deliver_scoped(plan, pointer, out_dir, token):
 
 
 def continue_registered(pointer, game_id, token, result, windows, *, expected_scope=None):
-    """Use only the original IDs, including when called by a later workflow."""
+    """Use only a verified saved registration, including in a later workflow."""
     for continuation in range(1, windows + 1):
         print(json.dumps({"status": "resuming_registered_application", "reason": result["reason"],
                           "application_id": pointer["application_id"], "continuation": continuation,
