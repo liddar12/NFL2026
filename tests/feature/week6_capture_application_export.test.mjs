@@ -344,7 +344,7 @@ with tempfile.TemporaryDirectory() as tmp:
   assert.equal(r.groups, 2);
 });
 
-test('scheduled game continues verified exact IDs up to three times only while pending on bounded progress', () => {
+test('scheduled game continues verified exact IDs within existing windows on progress or transient transport errors', () => {
   const r = py(`
 from scripts import run_scheduled_outcomes as scheduled
 with tempfile.TemporaryDirectory() as tmp:
@@ -361,8 +361,10 @@ with tempfile.TemporaryDirectory() as tmp:
   assert (aid,rid)==(pointer['application_id'],pointer['request_id'])
   assert kwargs=={'game_id':'G1','max_run_seconds':285}
   retries.append(aid)
-  if len(retries)<3:
-   raise A.ApplicationBudgetExceeded('application_pending_budget')
+  if len(retries)==1:
+   raise A.ApplicationExportError('application_http_exhausted')
+  if len(retries)==2:
+   raise A.ApplicationExportError('application_transport_exhausted')
   return original_resume(aid,rid,token,**kwargs,transport=server)
  with mock.patch.object(A,'send',side_effect=first), mock.patch.object(A,'resume_registered',side_effect=resume), redirect_stdout(io.StringIO()) as progress:
   terminal=scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)
@@ -375,7 +377,8 @@ with tempfile.TemporaryDirectory() as tmp:
  assert len(registrations)==1 and len(steps)==len(set(steps))==2
 
  with mock.patch.object(A,'resume_registered') as no_retry:
-  for reason,out_dir in (('application_http_exhausted',root/'out'),('application_pending_budget',root/'not_registered')):
+  for reason,out_dir in (('application_http_refused',root/'out'),('application_pending_budget',root/'not_registered'),
+                         ('application_http_exhausted',root/'not_registered'),('application_transport_exhausted',root/'not_registered')):
    pending={'status':'pending','reason':reason}
    with mock.patch.object(A,'send',return_value=pending):
     assert scheduled.deliver_scoped(plan,pointer,out_dir,TOKEN)==pending
@@ -383,12 +386,30 @@ with tempfile.TemporaryDirectory() as tmp:
  pending={'status':'pending','reason':'application_pending_step_limit'}
  for stop,expected,expected_count in (
    (A.ApplicationBudgetExceeded('application_pending_budget'),{'status':'pending','reason':'application_pending_budget'},3),
-   (A.ApplicationExportError('application_http_exhausted'),{'status':'pending','reason':'application_http_exhausted'},2),
+   (A.ApplicationExportError('application_http_exhausted'),{'status':'pending','reason':'application_http_exhausted'},3),
+   (A.ApplicationExportError('application_transport_exhausted'),{'status':'pending','reason':'application_transport_exhausted'},3),
+   (A.ApplicationExportError('application_http_refused'),{'status':'pending','reason':'application_http_refused'},2),
+   (A.ApplicationExportError('application_protocol_refused'),{'status':'pending','reason':'application_protocol_refused'},2),
    (terminal,terminal,2)):
   allowed=[A.ApplicationBudgetExceeded('application_pending_budget'),stop,stop]
   with mock.patch.object(A,'send',return_value=pending), mock.patch.object(A,'resume_registered',side_effect=allowed) as still_pending, redirect_stdout(io.StringIO()):
    assert scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)==expected
    assert still_pending.call_count==expected_count
+ for reason in ('application_http_exhausted','application_transport_exhausted'):
+  pending={'status':'pending','reason':reason}
+  with mock.patch.object(A,'send',return_value=pending) as initial,mock.patch.object(A,'resume_registered',return_value=terminal) as resumed,redirect_stdout(io.StringIO()):
+   assert scheduled.deliver_scoped(plan,pointer,root/'out',TOKEN)==terminal
+   initial.assert_called_once()
+   resumed.assert_called_once_with(pointer['application_id'],pointer['request_id'],TOKEN,game_id='G1',max_run_seconds=285)
+  with mock.patch.object(A,'send',return_value=pending),mock.patch.object(A,'resume_registered') as invalid_resume:
+   changed={**pointer,'request_id':ex.fingerprint('wrong request')}
+   assert error(lambda:scheduled.deliver_scoped(plan,changed,root/'out',TOKEN))
+   invalid_resume.assert_not_called()
+ with mock.patch.object(A,'resume_registered',side_effect=[
+  A.ApplicationExportError('application_http_exhausted'),A.ApplicationExportError('application_transport_exhausted'),terminal]) as historical,redirect_stdout(io.StringIO()):
+  assert scheduled.continue_registered(pointer,'G1',TOKEN,{'status':'pending','reason':'saved_registered_application'},4,expected_scope=scope)==terminal
+  assert historical.call_args_list==[mock.call(pointer['application_id'],pointer['request_id'],TOKEN,
+   game_id='G1',max_run_seconds=285,expected_scope=scope)]*3
  print(json.dumps({'registered':len(registrations),'steps':len(steps),'continuations':len(retries)}))
 `);
   assert.deepEqual(r, { registered: 1, steps: 2, continuations: 3 });
