@@ -763,6 +763,140 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(r.all, true); assert.deepEqual(r.calls, []); assert.equal(r.code, 1); assert.equal(r.bad, 1); assert.equal(r.redacted, true); assert.equal(r.written, false);
 });
 
+test('trusted Actions history verifies scoped artifact provenance and archive digest without following authenticated redirects', () => {
+  const r = py(`
+import hashlib,zipfile
+from datetime import datetime,timezone
+from scripts import outcome_recovery_history as H
+game='G1';rid=123;repo={'id':H.REPOSITORY_ID}
+run={'id':rid,'path':'.github/workflows/'+H.WORKFLOW,'status':'completed','event':'workflow_run',
+ 'head_branch':'main','repository':repo,'head_repository':repo,'head_sha':'a'*40,'run_attempt':2}
+source={'id':rid,'head_branch':'main','repository_id':H.REPOSITORY_ID,'head_repository_id':H.REPOSITORY_ID,'head_sha':'a'*40}
+pointer={'version':1,'run_id':str(rid),'run_attempt':'2','application_id':ex.fingerprint('app'),'request_id':ex.fingerprint('req')}
+archive=io.BytesIO()
+with zipfile.ZipFile(archive,'w') as z:z.writestr('pointer.json',ex.encoded(pointer))
+raw=archive.getvalue();digest='sha256:'+hashlib.sha256(raw).hexdigest()
+row={'id':7,'name':f'selflearning-outcome-{rid}-2-game-{game}','size_in_bytes':len(raw),'digest':digest,'workflow_run':source,'expired':False}
+def api(route):
+ if '/workflows/' in route:
+  assert 'event=workflow_run' in route and 'branch=main' in route
+  return {'total_count':1,'workflow_runs':[run]}
+ assert route==f'/runs/{rid}/artifacts?per_page=100'
+ return {'total_count':2,'artifacts':[row,{**row,'id':8,'name':f'selflearning-outcome-{rid}-1-game-{game}'}]}
+def find():return H.pointer_candidates(api,[game],datetime(2026,9,3,tzinfo=timezone.utc),'124')
+assert [x[2]for x in find()[game]]==['2','1']
+assert H._read_pointer_archive(raw,digest,len(raw))==pointer
+assert error(lambda:H._read_pointer_archive(raw+b'x',digest,len(raw)+1))
+assert error(lambda:H._read_pointer_archive(raw,digest,len(raw)+1))
+history=H.GitHubHistory('synthetic-read-only-github-token')
+requests=[]
+class Payload:
+ def __enter__(self):return self
+ def __exit__(self,*args):pass
+ def read(self,n):return raw
+def open_url(req,timeout):
+ requests.append(req)
+ if len(requests)==1:
+  raise urllib.error.HTTPError(req.full_url,302,'redirect',{'Location':'https://productionresultssa4.blob.core.windows.net/archive?signature=demo'},io.BytesIO())
+ return Payload()
+with mock.patch.object(history.opener,'open',side_effect=open_url):
+ assert history.download(find()[game][0])==pointer
+assert len(requests)==2 and requests[0].has_header('Authorization') and not requests[1].has_header('Authorization')
+run['head_repository']={'id':1}
+assert error(find)
+run['head_repository']=repo;source['head_sha']='b'*40
+assert error(find)
+source['head_sha']='a'*40
+run['run_attempt']=1
+assert error(find)
+print(json.dumps({'auth_bound':True,'archive_bound':True,'fork_refused':True}))
+`);
+  assert.deepEqual(r, { auth_bound: true, archive_bound: true, fork_refused: true });
+});
+
+test('automatic workflow resumes oldest useful registered progress without recapture and replays terminal read-only', () => {
+  const r = py(`
+from datetime import timedelta
+from scripts import run_scheduled_outcomes as S
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);_,_,path=fixture(root,include_roster=True)
+ kickoff=C._instant(f['KICKOFF']);now=kickoff+timedelta(days=1)
+ game={'game_id':'G1','week':6,'home':'SEA','away':'LAR','status':'STATUS_FINAL','kickoff_utc':f['KICKOFF']}
+ schedule={'season':2026,'games':[game]}
+ scope,_=S.recent_game(schedule,now,'G1')
+ plan=A.plan(path,A.ORIGIN,scope=scope)
+ older=S.capture_pointer(plan,'701','1')
+ newer={**S.capture_pointer(plan,'702','1'),'application_id':ex.fingerprint('new preregistered app'),'request_id':ex.fingerprint('new preregistered request')}
+ ignored={**newer,'run_id':'703','application_id':ex.fingerprint('never registered')}
+ artifacts=[(3,'703','1','unused',1),(2,'702','1','unused',1),(1,'701','1','unused',1)]
+ source=mock.Mock()
+ source.download.side_effect=lambda locator:{'701':older,'702':newer,'703':ignored}[locator[1]]
+ s=Server();assert send(plan,root/'old-issued-outbox',s,max_steps=1)['status']=='pending'
+ def progress(aid,rid,scope,token,*,deadline):
+  assert token==TOKEN
+  if aid==newer['application_id']:return ('active',0)
+  if aid==ignored['application_id']:return None
+  return A_READ(aid,rid,scope,token,transport=s)
+ A_READ=A.registered_progress
+ assert A_READ(older['application_id'],older['request_id'],scope,TOKEN,transport=s)==('active',1)
+ assert error(lambda:A_READ(older['application_id'],older['request_id'],{**scope,'week':7},TOKEN,transport=s))
+ assert error(lambda:A_READ(older['application_id'],newer['request_id'],scope,TOKEN,transport=s))
+ assert A_READ(ignored['application_id'],ignored['request_id'],scope,TOKEN,transport=Server()) is None
+ output=root/'selected';env={'NFL_SELFLEARN_OUTCOME_MODE':'record','NFL_SELFLEARN_OUTCOME_AUTOMATIC_GAMES':'true',
+  'GITHUB_REPOSITORY':'liddar12/NFL2026','GITHUB_REF':'refs/heads/main','RUNNER_TEMP':str(root),
+  'OUTCOME_GITHUB_TOKEN':'synthetic',S.TOKEN:TOKEN,'GITHUB_RUN_ID':'704','GITHUB_RUN_ATTEMPT':'1','GITHUB_OUTPUT':str(output)}
+ with mock.patch.object(S.history,'GitHubHistory',return_value=source),mock.patch.object(S.history,'pointer_candidates',return_value={'G1':artifacts}),mock.patch.object(A,'registered_progress',side_effect=progress),mock.patch.object(C,'capture',side_effect=AssertionError('unexpected fresh capture')) as raw,redirect_stdout(io.StringIO()):
+  assert S.select_scoped(schedule,now,env,root)==0
+  assert S.select_scoped(schedule,now,{**env,'OUTCOME_PROBE_GAME_ID':'G1'},root)==0
+  raw.assert_not_called()
+ matrices=[json.loads(line.split('=',1)[1])for line in output.read_text().splitlines()if line.startswith('entries=')]
+ assert matrices==[[{'mode':'resume','game_id':'G1',**older}]]*2
+ n=len(s.calls)
+ class FixedClock(S.datetime):
+  @classmethod
+  def now(cls,tz):return now
+ resume_env={**env,'OUTCOME_GAME_ID':'G1','OUTCOME_SOURCE_RUN_ID':'701','OUTCOME_SOURCE_RUN_ATTEMPT':'1',
+   'OUTCOME_APPLICATION_ID':older['application_id'],'OUTCOME_REQUEST_ID':older['request_id']}
+ with mock.patch.object(S,'datetime',FixedClock),mock.patch.object(S.handoff.forecast.capture,'read_input',return_value=schedule),mock.patch.object(A,'http_transport',return_value=s),mock.patch.object(C,'capture',side_effect=AssertionError('unexpected capture')) as raw,redirect_stdout(io.StringIO()) as emitted:
+  assert S.run('recover-auto',env=resume_env)==0
+  writes=[p for m,p,_ in s.calls[n:]if m=='POST'];n=len(s.calls)
+  assert len(writes)==1 and '/steps/' in writes[0]
+  assert S.run('recover-auto',env=resume_env)==0
+  assert all(m=='GET'for m,_,_ in s.calls[n:])
+  raw.assert_not_called()
+  assert all(json.loads(row)['adoption_approved'] is False for row in emitted.getvalue().splitlines())
+ assert A_READ(older['application_id'],older['request_id'],scope,TOKEN,transport=s)==('processed',2)
+ def has_terminal(aid,rid,scope):
+  if aid==newer['application_id']:return 'active',10
+  if aid==ignored['application_id']:return None
+  return A_READ(aid,rid,scope,TOKEN,transport=s)
+ assert S.recoverable_application(scope,artifacts,source.download,has_terminal)=={'mode':'resume','game_id':'G1',**older}
+ print(json.dumps({'resume_exact':True,'replay_read_only':True,'raw_capture_calls':0}))
+`);
+  assert.deepEqual(r, { resume_exact: true, replay_read_only: true, raw_capture_calls: 0 });
+});
+
+test('automatic outcome recovery holds failed authority and an empty isolated probe without recapturing', () => {
+  const r = py(`
+from datetime import timedelta
+from scripts import run_scheduled_outcomes as S
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);kickoff=C._instant(f['KICKOFF']);now=kickoff+timedelta(days=1)
+ schedule={'season':2026,'games':[{'game_id':'G1','week':6,'home':'SEA','away':'LAR','status':'STATUS_FINAL','kickoff_utc':f['KICKOFF']}]}
+ source=mock.Mock();source.download.side_effect=ValueError('untrusted artifact bytes')
+ output=root/'selected';env={'OUTCOME_GITHUB_TOKEN':'synthetic',S.TOKEN:TOKEN,'GITHUB_RUN_ID':'704','GITHUB_OUTPUT':str(output)}
+ with mock.patch.object(S.history,'GitHubHistory',return_value=source),mock.patch.object(S.history,'pointer_candidates',side_effect=[{'G1':[(1,'703','1','invalid',1)]},{'G1':[]}]),mock.patch.object(C,'capture',side_effect=AssertionError('unexpected fresh capture')) as raw,redirect_stdout(io.StringIO()) as log:
+  assert S.select_scoped(schedule,now,env,root)==0
+  assert S.select_scoped(schedule,now,{**env,'OUTCOME_PROBE_GAME_ID':'G1'},root)==0
+  assert output.read_text().count('recovery_held_count=1')==2
+  assert output.read_text().count('fresh_count=0')==2
+  raw.assert_not_called()
+  assert 'untrusted artifact bytes' not in log.getvalue()
+ print(json.dumps({'held':True}))
+`);
+  assert.equal(r.held, true);
+});
+
 after(() => {
   assert.equal(createHash('sha256').update(readFileSync(SOURCE)).digest('hex'), sourceHash);
   const executable = JSON.parse(execFileSync('python3', ['-c', `import json,trace;print(json.dumps(sorted(x for x in trace._find_executable_linenos(${JSON.stringify(SOURCE)}) if x>0)))`], { encoding: 'utf8' }));
