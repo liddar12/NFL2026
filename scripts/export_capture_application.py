@@ -526,6 +526,10 @@ def route_valid(method, path, body):
 
 LEGACY_HTTP_TIMEOUT = 50
 SCOPED_HTTP_TIMEOUT = 135
+# Give each authenticated progress read longer than the hosted RPC's 22-second
+# bound, with room for the registration, status and terminal views.
+SELECTOR_READ_TIMEOUT = 30
+SELECTOR_LOOKUP_SECONDS = 75
 
 
 def http_transport(destination, token, *, timeout=LEGACY_HTTP_TIMEOUT, deadline=None,
@@ -649,23 +653,24 @@ def read_application(request, transport, attempts, sleep, check, *, request_id=N
     return report_valid(result, request)
 
 
-def registered_progress(application_id, request_id, expected_scope, token, *, transport=None, deadline=None):
+def registered_progress(application_id, request_id, expected_scope, token, *, transport=None, deadline=None,
+                        sleep=time.sleep, monotonic=time.monotonic):
     """Read authenticated progress for scheduling. Delivery still verifies the full report."""
     O._hash(application_id)
     O._hash(request_id)
     need(type(token) is str and 32 <= len(token) <= 8192 and all(0x21 <= ord(c) <= 0x7e for c in token))
-    stop = time.monotonic() + 25
+    stop = monotonic() + SELECTOR_LOOKUP_SECONDS
     deadline = min(stop, deadline) if deadline is not None else stop
     channel = ex._credential_guarded_transport(transport or http_transport(
-        ORIGIN, token, timeout=10, deadline=deadline), (token,))
+        ORIGIN, token, timeout=SELECTOR_READ_TIMEOUT, deadline=deadline, monotonic=monotonic), (token,))
 
     def check():
-        if time.monotonic() >= deadline:
+        if monotonic() >= deadline:
             raise ApplicationBudgetExceeded("application_pending_budget")
 
     def page(view, original=None):
         fence = original["ledger_watermark"] if original is not None else None
-        response = exchange(channel, "GET", route(application_id, view, fence=fence), None, 2, time.sleep,
+        response = exchange(channel, "GET", route(application_id, view, fence=fence), None, 2, sleep,
                             check, missing=view == "registration")
         if response is None:
             return None

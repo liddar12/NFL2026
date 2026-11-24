@@ -674,6 +674,48 @@ with mock.patch.object(A.urllib.request,'build_opener',return_value=opener)as bu
   assert.equal(r.invalid, true); assert.equal(r.expired, true); assert.equal(r.late, true); assert.equal(r.proxy_off, true); assert.equal(r.redirect_off, true);
 });
 
+test('selector allows the hosted read to settle before retry and honors the outer deadline', () => {
+  const r = py(`
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);_,_,path=fixture(root,include_roster=True)
+ scope={'policy':A.GAME_SCOPE_POLICY,'season':2026,'week':6,'game_id':'G1'}
+ plan=A.plan(path,A.ORIGIN,scope=scope);s=Server();s.register(plan['request'])
+ aid=plan['request']['application_id'];rid=ex.fingerprint(plan['request']);clock=[100.0];calls=[]
+ class Reply(io.BytesIO):
+  status=200
+  def __init__(self,url,body):
+   super().__init__(body);self.url=url
+  def geturl(self):return self.url
+ class SlowHost:
+  def open(self,request,timeout):
+   parsed=urllib.parse.urlsplit(request.full_url)
+   view=dict(urllib.parse.parse_qsl(parsed.query))['view']
+   calls.append([view,clock[0],timeout])
+   if timeout<22:
+    clock[0]+=timeout
+    raise TimeoutError()
+   clock[0]+=22
+   if len(calls)==1:
+    raise urllib.error.HTTPError(request.full_url,503,'unavailable',{},io.BytesIO())
+   assert request.get_method()=='GET'
+   status,raw=s('GET',parsed.path+'?'+parsed.query,None);assert status==200
+   return Reply(request.full_url,raw)
+ def advance(seconds):clock[0]+=seconds
+ with mock.patch.object(A.urllib.request,'build_opener',return_value=SlowHost()):
+  ready=A.registered_progress(aid,rid,scope,TOKEN,sleep=advance,monotonic=lambda:clock[0])
+  usable=list(calls);calls.clear();clock[0]=100.0
+  try:
+   A.registered_progress(aid,rid,scope,TOKEN,deadline=115,sleep=advance,monotonic=lambda:clock[0])
+  except A.ApplicationBudgetExceeded as refused:
+   assert str(refused)=='application_pending_budget'
+  else:raise AssertionError('accepted after selector deadline')
+ print(json.dumps({'lookup':ready,'normal':usable,'clamped':calls}))
+`);
+  assert.deepEqual(r, { lookup: ['active', 0],
+    normal: [['registration', 100, 30], ['registration', 122.5, 30], ['status', 144.5, 30]],
+    clamped: [['registration', 100, 15]] });
+});
+
 test('late terminal replies and retry sleeps leave pending for exact original recovery; cancellation is not swallowed', () => {
   const r = py(`
 with tempfile.TemporaryDirectory()as tmp:
