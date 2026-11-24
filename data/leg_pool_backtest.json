@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-17T16:47:38Z",
+  "generated_utc": "2026-11-24T18:45:21Z",
   "model": "leg_pool_v1",
   "ladder": {
     "QB": [
@@ -72,14 +72,14 @@
     "shipped": {
       "arm": "shipped",
       "n": 41314,
-      "skill": 0.1505,
-      "ece": 0.0668,
-      "log_loss": 0.5819
+      "skill": 0.1427,
+      "ece": 0.0723,
+      "log_loss": 0.5873
     },
     "ece_margin": 0.005,
     "min_skill": 0.02,
     "adopt": true,
-    "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0668, margin 0.005), keeps skill (0.1758 vs 0.1505) and carries information (skill > 0.02)"
+    "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0723, margin 0.005), keeps skill (0.1758 vs 0.1427) and carries information (skill > 0.02)"
   },
   "per_fold_coefficients": {
     "2024": {
@@ -242,50 +242,51 @@
       7,
       8,
       9,
-      10
+      10,
+      11
     ],
-    "legs": 1012,
-    "offered_mean": 0.5,
-    "hit_rate": 0.583,
+    "legs": 1202,
+    "offered_mean": 0.499,
+    "hit_rate": 0.5765,
     "per_week": [
       {
         "week": 7,
-        "n": 198,
+        "n": 196,
         "fit_weeks": [
           6
         ],
-        "raw_log_loss": 0.639,
-        "adjusted_log_loss": 0.6421,
-        "raw_ece": 0.0668,
-        "adjusted_ece": 0.0933,
-        "served_log_loss": 0.639
+        "raw_log_loss": 0.6367,
+        "adjusted_log_loss": 0.6439,
+        "raw_ece": 0.058,
+        "adjusted_ece": 0.1023,
+        "served_log_loss": 0.6367
       },
       {
         "week": 8,
-        "n": 204,
+        "n": 206,
         "fit_weeks": [
           6,
           7
         ],
-        "raw_log_loss": 0.6737,
-        "adjusted_log_loss": 0.6856,
-        "raw_ece": 0.0526,
-        "adjusted_ece": 0.0953,
-        "served_log_loss": 0.6737
+        "raw_log_loss": 0.6729,
+        "adjusted_log_loss": 0.6852,
+        "raw_ece": 0.0532,
+        "adjusted_ece": 0.0975,
+        "served_log_loss": 0.6729
       },
       {
         "week": 9,
-        "n": 223,
+        "n": 224,
         "fit_weeks": [
           6,
           7,
           8
         ],
-        "raw_log_loss": 0.6444,
-        "adjusted_log_loss": 0.6175,
-        "raw_ece": 0.1404,
-        "adjusted_ece": 0.0926,
-        "served_log_loss": 0.6444
+        "raw_log_loss": 0.6447,
+        "adjusted_log_loss": 0.6207,
+        "raw_ece": 0.1342,
+        "adjusted_ece": 0.0787,
+        "served_log_loss": 0.6447
       },
       {
         "week": 10,
@@ -297,10 +298,26 @@
           9
         ],
         "raw_log_loss": 0.6606,
-        "adjusted_log_loss": 0.6402,
+        "adjusted_log_loss": 0.6408,
         "raw_ece": 0.1018,
-        "adjusted_ece": 0.0475,
+        "adjusted_ece": 0.0463,
         "served_log_loss": 0.6606
+      },
+      {
+        "week": 11,
+        "n": 189,
+        "fit_weeks": [
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "raw_log_loss": 0.662,
+        "adjusted_log_loss": 0.6523,
+        "raw_ece": 0.0862,
+        "adjusted_ece": 0.1121,
+        "served_log_loss": 0.662
       }
     ],
     "adjustment": null,
@@ -308,16 +325,16 @@
     "reason": "hold: the layer is worse on held-out week(s) [7, 8]",
     "receipt_policy": "base_receipt_v1",
     "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
-    "base_mean": 0.5,
+    "base_mean": 0.499,
     "lineage": {
-      "eligible_unique_legs": 1012,
-      "quarantined_records": 43519,
+      "eligible_unique_legs": 1202,
+      "quarantined_records": 43520,
       "quarantine_reasons": {
-        "missing_or_unsupported_receipt": 43519
+        "missing_or_unsupported_receipt": 43520
       },
       "eligibility": "validated internal pre-event receipts; public availability unverified",
       "different_base_version": 0,
-      "joined_unique_legs": 1012
+      "joined_unique_legs": 1202
     }
   },
   "narrow_guard": {
@@ -331,9 +348,9 @@
     "shipped_fit": {
       "arm": "shipped_fit",
       "n": 2430,
-      "skill": 0.0374,
-      "ece": 0.0207,
-      "log_loss": 0.6659
+      "skill": 0.0389,
+      "ece": 0.0265,
+      "log_loss": 0.6648
     },
     "note": "the shipped slate keeps shipped_fit; pool_fit is shown only to record that one coefficient set cannot serve both populations"
   },
