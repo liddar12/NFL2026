@@ -1,12 +1,12 @@
 {
   "kind": "atd_card_scores",
   "season": 2026,
-  "generated_utc": "2026-11-26T20:46:33Z",
-  "finals_source": "ESPN grading capture 2026-11-26T20:42:32.515153Z (manifest identity a7aa9d9c263871ddf6d8338edb4ad93e318e3783b05afbb3790de12fdd3e2222, 164 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-26T20:32:55Z",
+  "generated_utc": "2026-11-26T22:08:43Z",
+  "finals_source": "ESPN grading capture 2026-11-26T22:03:24.702285Z (manifest identity 68ebe85959948bf54cc533732c993366279b96c4a625d90595748d35fbcc86a6, 165 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-26T20:42:35Z",
   "skipped": null,
   "rule": "a card hits when every leg hits; a pending leg keeps the card pending (never a miss); ATD legs graded by grade_atd (void = did not play); a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108)",
-  "graded": 24735,
-  "pending": 2219,
+  "graded": 24736,
+  "pending": 2275,
   "by_mode": {
     "all_td": {
       "2": {
@@ -396,10 +396,10 @@
       },
       "3": {
         "hits": 168,
-        "graded": 768,
-        "hit_rate": 0.2188,
-        "mean_model": 0.207625,
-        "ratio": 1.054
+        "graded": 769,
+        "hit_rate": 0.2185,
+        "mean_model": 0.207611,
+        "ratio": 1.052
       },
       "4": {
         "hits": 75,
@@ -2272136,6 +2272136,53 @@
           "reason": null,
           "gsis_id": "espn-4575131",
           "line": 0.5,
+          "side": "home"
+        }
+      ]
+    },
+    {
+      "week": 12,
+      "scope": "my",
+      "card_id": "f5d55faed97a6e66",
+      "mode": "majority_td",
+      "n_legs": 3,
+      "model_prob": 0.19728061,
+      "result": "miss",
+      "legs": [
+        {
+          "selection": "J. Taylor anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873088",
+          "result": "pending",
+          "actual": null,
+          "reason": "no_final",
+          "gsis_id": "espn-4242335",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "J. Gibbs anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873081",
+          "result": "pending",
+          "actual": null,
+          "reason": "no_stat_line",
+          "gsis_id": "espn-4429795",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "DET ML",
+          "market": "moneyline",
+          "game_id": "401873081",
+          "result": "miss",
+          "actual": {
+            "home_score": 35,
+            "away_score": 39
+          },
+          "reason": null,
+          "gsis_id": null,
+          "line": null,
           "side": "home"
         }
       ]
