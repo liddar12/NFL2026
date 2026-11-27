@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-27T04:14:05Z",
+  "generated_utc": "2026-11-27T05:03:50Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "ESPN grading capture 2026-11-27T04:04:35.916849Z (manifest identity afdaa52a93afa277c26f0092a7aab8c49419ac81da2d4fbb91a23b9d4355f644, 166 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-27T00:31:15Z",
+  "finals_source": "ESPN grading capture 2026-11-27T04:59:41.407547Z (manifest identity b8e05db5403da37157b7dcd7551bf1526081b89b068aeb8bce80f38f8dbc815c, 167 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-27T04:10:51Z",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 12,
@@ -10,7 +10,7 @@
     "on_file": 1035,
     "locked": 864,
     "unlocked": 171,
-    "resolved": 756,
+    "resolved": 757,
     "unresolved": 95
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 174,
-      "hit_rate": 0.6207,
-      "log_loss": 0.6336,
-      "brier": 0.2227
+      "n": 175,
+      "hit_rate": 0.6229,
+      "log_loss": 0.6321,
+      "brier": 0.2219
     },
     "spread": {
       "n": 137,
@@ -439,10 +439,10 @@
         }
       },
       "moneyline": {
-        "n": 3,
-        "hit_rate": 0.3333,
-        "log_loss": 0.7553,
-        "brier": 0.2801
+        "n": 4,
+        "hit_rate": 0.5,
+        "log_loss": 0.6595,
+        "brier": 0.2342
       },
       "spread": {
         "n": 0,
@@ -885,14 +885,14 @@
       "game_id": "401873082",
       "market": "qb_pass_yds",
       "selection": "J. Allen 225+ pass yds",
-      "reason": "no_final"
+      "reason": "no_stat_line"
     },
     {
       "week": 12,
       "game_id": "401873082",
       "market": "rb_rush_yds",
       "selection": "J. Cook III 60+ rush yds",
-      "reason": "no_final"
+      "reason": "no_stat_line"
     },
     {
       "week": 12,
@@ -14238,6 +14238,21 @@
       "model_prob": 0.6131,
       "seed_prob": 0.5144,
       "actual": 146.0,
+      "hit": true
+    },
+    {
+      "week": 12,
+      "game_id": "401873082",
+      "market": "moneyline",
+      "selection": "BUF ML",
+      "team": "BUF",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6895,
+      "actual": {
+        "home_score": 13,
+        "away_score": 10
+      },
       "hit": true
     }
   ],

@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-27T04:17:18Z",
+  "generated_utc": "2026-11-27T05:07:01Z",
   "weeks_replayed": [
     1,
     2,
@@ -19,14 +19,14 @@
     "on_file": 1035,
     "locked": 864,
     "unlocked": 171,
-    "resolved": 756,
+    "resolved": 757,
     "unresolved_by_reason": {
-      "no_stat_line": 53,
+      "no_stat_line": 55,
       "push": 6,
       "tie": 1,
       "player_game_mismatch": 1,
-      "week_not_resolved": 13,
-      "no_final": 34
+      "week_not_resolved": 12,
+      "no_final": 32
     }
   },
   "baseline": "shipped",
@@ -35,11 +35,11 @@
       "description": "The probability locked on the leg at build time. The baseline every other row is measured against; it is not a candidate.",
       "legs": {
         "pooled": {
-          "n": 756,
-          "hit_rate": 0.5291,
-          "log_loss": 0.6666,
-          "brier": 0.2373,
-          "shipped_log_loss_same_legs": 0.6666,
+          "n": 757,
+          "hit_rate": 0.5297,
+          "log_loss": 0.6662,
+          "brier": 0.2371,
+          "shipped_log_loss_same_legs": 0.6662,
           "delta_log_loss": 0.0,
           "ci90": [
             0.0,
@@ -203,11 +203,11 @@
             "week": 11
           },
           {
-            "n": 8,
-            "hit_rate": 0.5,
-            "log_loss": 0.6575,
-            "brier": 0.2321,
-            "shipped_log_loss_same_legs": 0.6575,
+            "n": 9,
+            "hit_rate": 0.5556,
+            "log_loss": 0.6257,
+            "brier": 0.2171,
+            "shipped_log_loss_same_legs": 0.6257,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -219,11 +219,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 174,
-            "hit_rate": 0.6207,
-            "log_loss": 0.6336,
-            "brier": 0.2227,
-            "shipped_log_loss_same_legs": 0.6336,
+            "n": 175,
+            "hit_rate": 0.6229,
+            "log_loss": 0.6321,
+            "brier": 0.2219,
+            "shipped_log_loss_same_legs": 0.6321,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -290,12 +290,12 @@
       "parlays": {
         "eligible": 745,
         "excluded_by_reason": {
-          "no_stat_line": 35,
+          "no_stat_line": 38,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 36,
-          "no_final": 12
+          "week_not_resolved": 33,
+          "no_final": 11
         },
         "rules": {
           "all": {
@@ -357,15 +357,15 @@
       "description": "Pre-calibration pricing: props = seed_prop_prob(p_team), moneyline = p_team, spread = 0.5. The floor the calibrated model had to clear to ship.",
       "legs": {
         "pooled": {
-          "n": 756,
-          "hit_rate": 0.5291,
-          "log_loss": 0.677,
-          "brier": 0.2425,
-          "shipped_log_loss_same_legs": 0.6666,
+          "n": 757,
+          "hit_rate": 0.5297,
+          "log_loss": 0.6766,
+          "brier": 0.2423,
+          "shipped_log_loss_same_legs": 0.6662,
           "delta_log_loss": 0.0104,
           "ci90": [
-            -0.0016,
-            0.022
+            -0.0015,
+            0.0221
           ],
           "verdict": "same"
         },
@@ -525,15 +525,15 @@
             "week": 11
           },
           {
-            "n": 8,
-            "hit_rate": 0.5,
-            "log_loss": 0.7394,
-            "brier": 0.2726,
-            "shipped_log_loss_same_legs": 0.6575,
-            "delta_log_loss": 0.0819,
+            "n": 9,
+            "hit_rate": 0.5556,
+            "log_loss": 0.6985,
+            "brier": 0.253,
+            "shipped_log_loss_same_legs": 0.6257,
+            "delta_log_loss": 0.0728,
             "ci90": [
-              0.0279,
-              0.1427
+              0.0228,
+              0.1304
             ],
             "verdict": "worse",
             "week": 12
@@ -541,11 +541,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 174,
-            "hit_rate": 0.6207,
-            "log_loss": 0.6336,
-            "brier": 0.2227,
-            "shipped_log_loss_same_legs": 0.6336,
+            "n": 175,
+            "hit_rate": 0.6229,
+            "log_loss": 0.6321,
+            "brier": 0.2219,
+            "shipped_log_loss_same_legs": 0.6321,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -612,12 +612,12 @@
       "parlays": {
         "eligible": 745,
         "excluded_by_reason": {
-          "no_stat_line": 35,
+          "no_stat_line": 38,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 36,
-          "no_final": 12
+          "week_not_resolved": 33,
+          "no_final": 11
         },
         "rules": {
           "all": {
@@ -673,17 +673,17 @@
         }
       },
       "verdict": "same",
-      "note": "756 of 756 resolved leg(s) re-priced, 445 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "757 of 757 resolved leg(s) re-priced, 445 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     },
     "pool_calibration": {
       "description": "Props re-priced with the wide-pool coefficients from leg_pool_backtest.json, the support rule kept: a leg whose z is outside the pool's measured range is skipped, not extrapolated. Game legs as shipped.",
       "legs": {
         "pooled": {
-          "n": 755,
-          "hit_rate": 0.5285,
-          "log_loss": 0.6585,
-          "brier": 0.2334,
-          "shipped_log_loss_same_legs": 0.6656,
+          "n": 756,
+          "hit_rate": 0.5291,
+          "log_loss": 0.6581,
+          "brier": 0.2332,
+          "shipped_log_loss_same_legs": 0.6652,
           "delta_log_loss": -0.0071,
           "ci90": [
             -0.0138,
@@ -847,15 +847,15 @@
             "week": 11
           },
           {
-            "n": 8,
-            "hit_rate": 0.5,
-            "log_loss": 0.625,
-            "brier": 0.2174,
-            "shipped_log_loss_same_legs": 0.6575,
-            "delta_log_loss": -0.0325,
+            "n": 9,
+            "hit_rate": 0.5556,
+            "log_loss": 0.5968,
+            "brier": 0.204,
+            "shipped_log_loss_same_legs": 0.6257,
+            "delta_log_loss": -0.0289,
             "ci90": [
-              -0.0732,
-              0.0082
+              -0.0651,
+              0.0054
             ],
             "verdict": "same",
             "week": 12
@@ -863,11 +863,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 174,
-            "hit_rate": 0.6207,
-            "log_loss": 0.6336,
-            "brier": 0.2227,
-            "shipped_log_loss_same_legs": 0.6336,
+            "n": 175,
+            "hit_rate": 0.6229,
+            "log_loss": 0.6321,
+            "brier": 0.2219,
+            "shipped_log_loss_same_legs": 0.6321,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -934,13 +934,13 @@
       "parlays": {
         "eligible": 742,
         "excluded_by_reason": {
-          "no_stat_line": 35,
+          "no_stat_line": 38,
           "leg_not_locked": 84,
           "push": 6,
           "leg_not_priced_by_variant": 3,
           "tie": 2,
-          "week_not_resolved": 36,
-          "no_final": 12
+          "week_not_resolved": 33,
+          "no_final": 11
         },
         "rules": {
           "all": {
@@ -996,21 +996,21 @@
         }
       },
       "verdict": "better",
-      "note": "755 of 756 resolved leg(s) re-priced, 444 changed, 1 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "756 of 757 resolved leg(s) re-priced, 444 changed, 1 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     },
     "spread_margin_model": {
       "description": "Spread legs priced by the retired pre-R51 Elo margin rule (p_cover = Phi((Phi^-1(p_team)*13.5 - handicap)/13.5)); moneyline and props as shipped. A retired rule, re-measured on live legs -- not a path back in.",
       "legs": {
         "pooled": {
-          "n": 756,
-          "hit_rate": 0.5291,
-          "log_loss": 0.6703,
-          "brier": 0.2389,
-          "shipped_log_loss_same_legs": 0.6666,
+          "n": 757,
+          "hit_rate": 0.5297,
+          "log_loss": 0.6699,
+          "brier": 0.2387,
+          "shipped_log_loss_same_legs": 0.6662,
           "delta_log_loss": 0.0037,
           "ci90": [
-            -0.0007,
-            0.0086
+            -0.0008,
+            0.0085
           ],
           "verdict": "same"
         },
@@ -1170,11 +1170,11 @@
             "week": 11
           },
           {
-            "n": 8,
-            "hit_rate": 0.5,
-            "log_loss": 0.6575,
-            "brier": 0.2321,
-            "shipped_log_loss_same_legs": 0.6575,
+            "n": 9,
+            "hit_rate": 0.5556,
+            "log_loss": 0.6257,
+            "brier": 0.2171,
+            "shipped_log_loss_same_legs": 0.6257,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -1186,11 +1186,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 174,
-            "hit_rate": 0.6207,
-            "log_loss": 0.6336,
-            "brier": 0.2227,
-            "shipped_log_loss_same_legs": 0.6336,
+            "n": 175,
+            "hit_rate": 0.6229,
+            "log_loss": 0.6321,
+            "brier": 0.2219,
+            "shipped_log_loss_same_legs": 0.6321,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -1257,12 +1257,12 @@
       "parlays": {
         "eligible": 745,
         "excluded_by_reason": {
-          "no_stat_line": 35,
+          "no_stat_line": 38,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 36,
-          "no_final": 12
+          "week_not_resolved": 33,
+          "no_final": 11
         },
         "rules": {
           "all": {
@@ -1318,21 +1318,21 @@
         }
       },
       "verdict": "same",
-      "note": "756 of 756 resolved leg(s) re-priced, 137 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "757 of 757 resolved leg(s) re-priced, 137 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     },
     "shrink_to_half": {
       "description": "Props halved toward 0.5 (p = 0.5 + 0.5*(shipped - 0.5)); game legs as shipped. The simplest test of whether the prop model is overconfident rather than wrong.",
       "legs": {
         "pooled": {
-          "n": 756,
-          "hit_rate": 0.5291,
-          "log_loss": 0.6684,
-          "brier": 0.2382,
-          "shipped_log_loss_same_legs": 0.6666,
+          "n": 757,
+          "hit_rate": 0.5297,
+          "log_loss": 0.668,
+          "brier": 0.238,
+          "shipped_log_loss_same_legs": 0.6662,
           "delta_log_loss": 0.0018,
           "ci90": [
-            -0.0045,
-            0.0076
+            -0.0044,
+            0.0077
           ],
           "verdict": "same"
         },
@@ -1492,15 +1492,15 @@
             "week": 11
           },
           {
-            "n": 8,
-            "hit_rate": 0.5,
-            "log_loss": 0.6853,
-            "brier": 0.2457,
-            "shipped_log_loss_same_legs": 0.6575,
-            "delta_log_loss": 0.0278,
+            "n": 9,
+            "hit_rate": 0.5556,
+            "log_loss": 0.6504,
+            "brier": 0.2291,
+            "shipped_log_loss_same_legs": 0.6257,
+            "delta_log_loss": 0.0247,
             "ci90": [
-              -0.0015,
-              0.0547
+              -0.0014,
+              0.0495
             ],
             "verdict": "same",
             "week": 12
@@ -1508,11 +1508,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 174,
-            "hit_rate": 0.6207,
-            "log_loss": 0.6336,
-            "brier": 0.2227,
-            "shipped_log_loss_same_legs": 0.6336,
+            "n": 175,
+            "hit_rate": 0.6229,
+            "log_loss": 0.6321,
+            "brier": 0.2219,
+            "shipped_log_loss_same_legs": 0.6321,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -1579,12 +1579,12 @@
       "parlays": {
         "eligible": 745,
         "excluded_by_reason": {
-          "no_stat_line": 35,
+          "no_stat_line": 38,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 36,
-          "no_final": 12
+          "week_not_resolved": 33,
+          "no_final": 11
         },
         "rules": {
           "all": {
@@ -1640,7 +1640,7 @@
         }
       },
       "verdict": "same",
-      "note": "756 of 756 resolved leg(s) re-priced, 445 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "757 of 757 resolved leg(s) re-priced, 445 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     }
   },
   "same_game_pairs": {
