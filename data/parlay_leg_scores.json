@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-27T05:03:50Z",
+  "generated_utc": "2026-11-27T05:41:26Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "ESPN grading capture 2026-11-27T04:59:41.407547Z (manifest identity b8e05db5403da37157b7dcd7551bf1526081b89b068aeb8bce80f38f8dbc815c, 167 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-27T04:10:51Z",
+  "finals_source": "ESPN grading capture 2026-11-27T05:38:43.343562Z (manifest identity 19edc321fb8e1b1a409dc30a2c0d5fc554a361379e95d48d622d055104434083, 167 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-27T05:00:58Z",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 12,
@@ -10,24 +10,24 @@
     "on_file": 1035,
     "locked": 864,
     "unlocked": 171,
-    "resolved": 757,
-    "unresolved": 95
+    "resolved": 761,
+    "unresolved": 91
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 445,
-      "hit_rate": 0.5393,
+      "n": 449,
+      "hit_rate": 0.5412,
       "model": {
-        "log_loss": 0.6713,
-        "brier": 0.2391
+        "log_loss": 0.6699,
+        "brier": 0.2384
       },
       "seed": {
-        "log_loss": 0.689,
-        "brier": 0.2479
+        "log_loss": 0.6885,
+        "brier": 0.2477
       },
       "by_pricing": {
-        "calibrated": 445
+        "calibrated": 449
       }
     },
     "moneyline": {
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 146,
-      "hit_rate": 0.5822,
+      "n": 148,
+      "hit_rate": 0.5811,
       "model": {
-        "log_loss": 0.7162,
-        "brier": 0.2602
+        "log_loss": 0.714,
+        "brier": 0.2591
       },
       "seed": {
-        "log_loss": 0.6617,
-        "brier": 0.2344
+        "log_loss": 0.6624,
+        "brier": 0.2348
       },
       "by_pricing": {
-        "calibrated": 146
+        "calibrated": 148
       }
     },
     "RB": {
-      "n": 140,
-      "hit_rate": 0.5286,
+      "n": 141,
+      "hit_rate": 0.5319,
       "model": {
-        "log_loss": 0.6577,
-        "brier": 0.2329
+        "log_loss": 0.6554,
+        "brier": 0.2318
       },
       "seed": {
-        "log_loss": 0.6916,
-        "brier": 0.2493
+        "log_loss": 0.6906,
+        "brier": 0.2488
       },
       "by_pricing": {
-        "calibrated": 140
+        "calibrated": 141
       }
     },
     "WR": {
-      "n": 159,
-      "hit_rate": 0.5094,
+      "n": 160,
+      "hit_rate": 0.5125,
       "model": {
-        "log_loss": 0.6421,
-        "brier": 0.2251
+        "log_loss": 0.6419,
+        "brier": 0.2249
       },
       "seed": {
-        "log_loss": 0.7117,
-        "brier": 0.2592
+        "log_loss": 0.7108,
+        "brier": 0.2587
       },
       "by_pricing": {
-        "calibrated": 159
+        "calibrated": 160
       }
     }
   },
@@ -424,18 +424,18 @@
     {
       "week": 12,
       "props": {
-        "n": 5,
-        "hit_rate": 0.6,
+        "n": 9,
+        "hit_rate": 0.6667,
         "model": {
-          "log_loss": 0.5987,
-          "brier": 0.2034
+          "log_loss": 0.5591,
+          "brier": 0.1846
         },
         "seed": {
-          "log_loss": 0.7298,
-          "brier": 0.2682
+          "log_loss": 0.6894,
+          "brier": 0.2481
         },
         "by_pricing": {
-          "calibrated": 5
+          "calibrated": 9
         }
       },
       "moneyline": {
@@ -864,34 +864,6 @@
       "game_id": "401873070",
       "market": "rb_rush_yds",
       "selection": "D. Achane 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 12,
-      "game_id": "401873080",
-      "market": "qb_pass_yds",
-      "selection": "D. Prescott 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 12,
-      "game_id": "401873080",
-      "market": "wr_rec_yds",
-      "selection": "G. Pickens 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 12,
-      "game_id": "401873082",
-      "market": "qb_pass_yds",
-      "selection": "J. Allen 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 12,
-      "game_id": "401873082",
-      "market": "rb_rush_yds",
-      "selection": "J. Cook III 60+ rush yds",
       "reason": "no_stat_line"
     },
     {
@@ -14170,6 +14142,44 @@
     },
     {
       "week": 12,
+      "game_id": "401873080",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "D. Prescott 225+ pass yds",
+      "player": "Dak Prescott",
+      "team": "DAL",
+      "line": 224.5,
+      "mu": 252.86,
+      "sd": 76.66,
+      "z": 0.3699,
+      "p_team": 0.6597,
+      "pricing": "calibrated",
+      "model_prob": 0.6097,
+      "seed_prob": 0.5639,
+      "actual": 291.0,
+      "hit": true
+    },
+    {
+      "week": 12,
+      "game_id": "401873080",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "G. Pickens 60+ rec yds",
+      "player": "George Pickens",
+      "team": "DAL",
+      "line": 59.5,
+      "mu": 73.23,
+      "sd": 41.58,
+      "z": 0.3303,
+      "p_team": 0.6597,
+      "pricing": "calibrated",
+      "model_prob": 0.5459,
+      "seed_prob": 0.5639,
+      "actual": 67.0,
+      "hit": true
+    },
+    {
+      "week": 12,
       "game_id": "401873081",
       "market": "moneyline",
       "selection": "DET ML",
@@ -14253,6 +14263,44 @@
         "home_score": 13,
         "away_score": 10
       },
+      "hit": true
+    },
+    {
+      "week": 12,
+      "game_id": "401873082",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Allen 225+ pass yds",
+      "player": "Josh Allen",
+      "team": "BUF",
+      "line": 224.5,
+      "mu": 208.24,
+      "sd": 76.66,
+      "z": -0.2121,
+      "p_team": 0.6895,
+      "pricing": "calibrated",
+      "model_prob": 0.4518,
+      "seed_prob": 0.5758,
+      "actual": 81.0,
+      "hit": false
+    },
+    {
+      "week": 12,
+      "game_id": "401873082",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "J. Cook III 60+ rush yds",
+      "player": "James Cook III",
+      "team": "BUF",
+      "line": 59.5,
+      "mu": 92.69,
+      "sd": 38.87,
+      "z": 0.8539,
+      "p_team": 0.6895,
+      "pricing": "calibrated",
+      "model_prob": 0.7139,
+      "seed_prob": 0.5758,
+      "actual": 117.0,
       "hit": true
     }
   ],
