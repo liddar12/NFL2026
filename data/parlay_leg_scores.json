@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-28T03:55:46Z",
+  "generated_utc": "2026-11-28T10:18:44Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "ESPN grading capture 2026-11-28T03:51:15.225560Z (manifest identity 94adb2ab25b076a6ec91721f53fb30ea172aa72f9b83399f22988ba00ac0700f, 168 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-27T22:04:04Z",
+  "finals_source": "ESPN grading capture 2026-11-28T10:15:22.705860Z (manifest identity 8895e8cd3d557ee4371e4e7fb9b76d289c39bf7d6ebf8a7c571005cbce29ba56, 168 observed FINAL, 0 verified prior review FINAL retained); captured schedule updated 2026-11-28T03:52:07Z",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 12,
@@ -10,24 +10,24 @@
     "on_file": 1037,
     "locked": 865,
     "unlocked": 172,
-    "resolved": 762,
-    "unresolved": 92
+    "resolved": 764,
+    "unresolved": 90
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 449,
-      "hit_rate": 0.5412,
+      "n": 451,
+      "hit_rate": 0.5388,
       "model": {
-        "log_loss": 0.6699,
-        "brier": 0.2384
+        "log_loss": 0.6695,
+        "brier": 0.2382
       },
       "seed": {
-        "log_loss": 0.6885,
+        "log_loss": 0.6886,
         "brier": 0.2477
       },
       "by_pricing": {
-        "calibrated": 449
+        "calibrated": 451
       }
     },
     "moneyline": {
@@ -45,18 +45,18 @@
   },
   "by_position": {
     "QB": {
-      "n": 148,
-      "hit_rate": 0.5811,
+      "n": 149,
+      "hit_rate": 0.5772,
       "model": {
-        "log_loss": 0.714,
-        "brier": 0.2591
+        "log_loss": 0.7135,
+        "brier": 0.2589
       },
       "seed": {
-        "log_loss": 0.6624,
-        "brier": 0.2348
+        "log_loss": 0.663,
+        "brier": 0.2351
       },
       "by_pricing": {
-        "calibrated": 148
+        "calibrated": 149
       }
     },
     "RB": {
@@ -75,18 +75,18 @@
       }
     },
     "WR": {
-      "n": 160,
-      "hit_rate": 0.5125,
+      "n": 161,
+      "hit_rate": 0.5093,
       "model": {
-        "log_loss": 0.6419,
-        "brier": 0.2249
+        "log_loss": 0.6412,
+        "brier": 0.2246
       },
       "seed": {
-        "log_loss": 0.7108,
-        "brier": 0.2587
+        "log_loss": 0.7104,
+        "brier": 0.2585
       },
       "by_pricing": {
-        "calibrated": 160
+        "calibrated": 161
       }
     }
   },
@@ -424,18 +424,18 @@
     {
       "week": 12,
       "props": {
-        "n": 9,
-        "hit_rate": 0.6667,
+        "n": 11,
+        "hit_rate": 0.5455,
         "model": {
-          "log_loss": 0.5591,
-          "brier": 0.1846
+          "log_loss": 0.5644,
+          "brier": 0.1871
         },
         "seed": {
-          "log_loss": 0.6894,
-          "brier": 0.2481
+          "log_loss": 0.6904,
+          "brier": 0.2486
         },
         "by_pricing": {
-          "calibrated": 9
+          "calibrated": 11
         }
       },
       "moneyline": {
@@ -869,22 +869,8 @@
     {
       "week": 12,
       "game_id": "401873083",
-      "market": "qb_pass_yds",
-      "selection": "B. Nix 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 12,
-      "game_id": "401873083",
       "market": "rb_rush_yds",
       "selection": "R. Harvey 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 12,
-      "game_id": "401873083",
-      "market": "wr_rec_yds",
-      "selection": "D. Metcalf 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -14323,6 +14309,44 @@
         "home_score": 27,
         "away_score": 5
       },
+      "hit": false
+    },
+    {
+      "week": 12,
+      "game_id": "401873083",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "B. Nix 225+ pass yds",
+      "player": "Bo Nix",
+      "team": "DEN",
+      "line": 224.5,
+      "mu": 222.19,
+      "sd": 76.66,
+      "z": -0.0302,
+      "p_team": 0.5764,
+      "pricing": "calibrated",
+      "model_prob": 0.4773,
+      "seed_prob": 0.5306,
+      "actual": 169.0,
+      "hit": false
+    },
+    {
+      "week": 12,
+      "game_id": "401873083",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. Metcalf 60+ rec yds",
+      "player": "DK Metcalf",
+      "team": "PIT",
+      "line": 59.5,
+      "mu": 55.08,
+      "sd": 41.58,
+      "z": -0.1063,
+      "p_team": 0.4236,
+      "pricing": "calibrated",
+      "model_prob": 0.4104,
+      "seed_prob": 0.4694,
+      "actual": 36.0,
       "hit": false
     }
   ],
